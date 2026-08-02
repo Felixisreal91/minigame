@@ -96,7 +96,7 @@ function showTopScreen(screen) {
   gameHostScreen.classList.toggle('hidden', screen !== 'game-host');
   nunchiHostScreen.classList.toggle('hidden', screen !== 'nunchi-host');
   tolHostScreen.classList.toggle('hidden', screen !== 'tol-host');
-  hostStopBtn.classList.toggle('hidden', screen === 'game-select');
+  hostStopBtn.classList.toggle('hidden', screen === 'game-select' || screen === 'manage');
 }
 
 function showTolHostSubView(view) {
