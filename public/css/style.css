@@ -214,6 +214,16 @@ button.ghost {
   margin-bottom: 24px;
 }
 
+#landing-screen .card + .card {
+  margin-top: 24px;
+}
+
+#clear-cache-btn {
+  display: block;
+  width: fit-content;
+  margin: 24px auto 0;
+}
+
 .game-card {
   background: var(--surface);
   border: 1px solid var(--surface-2);
