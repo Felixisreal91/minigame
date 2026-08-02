@@ -23,9 +23,10 @@ const gameSelectEmptyParticipantsEl = document.getElementById('game-select-empty
 const gameCardStopAt7 = document.getElementById('game-card-stop-at-7');
 const gameCardNunchi = document.getElementById('game-card-nunchi');
 const gameCardTruthOrLie = document.getElementById('game-card-truth-or-lie');
-const gameSelectCodeBadge = document.getElementById('game-select-code-badge');
-const gameSelectQrPopover = document.getElementById('game-select-qr-popover');
-const gameSelectQrCanvas = document.getElementById('game-select-qr-canvas');
+const hostCodeBadge = document.getElementById('host-code-badge');
+const hostQrPopover = document.getElementById('host-qr-popover');
+const hostQrCanvas = document.getElementById('host-qr-canvas');
+const hostStopBtn = document.getElementById('host-stop-btn');
 
 const gameHostReady = document.getElementById('game-host-ready');
 const gameHostReadyMessage = document.getElementById('game-host-ready-message');
@@ -73,6 +74,7 @@ const tolHostBackBtn = document.getElementById('tol-host-back-btn');
 let participantCount = 0;
 let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie'
 let countdownTimer = null;
+let currentTopScreen = null;
 
 if (!code) {
   alert('잘못된 접근입니다. 방을 다시 만들어주세요.');
@@ -80,13 +82,14 @@ if (!code) {
 }
 
 roomCodeEl.textContent = code;
-gameSelectCodeBadge.textContent = code;
+hostCodeBadge.textContent = code;
 
-gameSelectCodeBadge.addEventListener('click', () => {
-  gameSelectQrPopover.classList.toggle('hidden');
+hostCodeBadge.addEventListener('click', () => {
+  hostQrPopover.classList.toggle('hidden');
 });
 
 function showTopScreen(screen) {
+  currentTopScreen = screen;
   manageScreen.classList.toggle('hidden', screen !== 'manage');
   gameSelectScreen.classList.toggle('hidden', screen !== 'game-select');
   gameHostScreen.classList.toggle('hidden', screen !== 'game-host');
@@ -220,7 +223,9 @@ socket.emit('host:attach', { code }, (res) => {
     return;
   }
   renderParticipants(res.participants);
-  if (res.status === 'game-select') {
+  if (res.status === 'waiting') {
+    showTopScreen('manage');
+  } else if (res.status === 'game-select') {
     showTopScreen('game-select');
   } else if (res.status === 'playing' && res.gameState) {
     activeGame = res.currentGame;
@@ -474,13 +479,27 @@ tolHostBackBtn.addEventListener('click', () => {
   });
 });
 
+hostStopBtn.addEventListener('click', () => {
+  const isMidGame = ['game-host', 'nunchi-host', 'tol-host'].includes(currentTopScreen);
+  if (isMidGame && !confirm('진행 중인 게임을 중단하고 게임 선택 화면으로 돌아갈까요?')) {
+    return;
+  }
+  socket.emit('host:back-to-game-select', { code }, (res) => {
+    if (res?.success) {
+      showTopScreen('game-select');
+    } else {
+      alert(res?.error || '이동할 수 없습니다.');
+    }
+  });
+});
+
 // QR 렌더링은 마지막에: 실패해도 위의 참가자 목록/게임플레이 버튼 동작에 영향 없도록
 try {
   const joinUrl = `${location.origin}/?code=${code}`;
   QRCode.toCanvas(qrCanvas, joinUrl, { width: 180, margin: 1 }, (err) => {
     if (err) console.error('QR 생성 실패:', err);
   });
-  QRCode.toCanvas(gameSelectQrCanvas, joinUrl, { width: 140, margin: 1 }, (err) => {
+  QRCode.toCanvas(hostQrCanvas, joinUrl, { width: 140, margin: 1 }, (err) => {
     if (err) console.error('QR 생성 실패:', err);
   });
 } catch (err) {

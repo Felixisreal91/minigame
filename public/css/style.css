@@ -285,15 +285,15 @@ button.ghost {
   opacity: 0.4;
 }
 
-#game-select-screen {
-  position: relative;
+.host-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 
 .code-corner {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 10;
+  position: relative;
 }
 
 .code-badge {
@@ -308,10 +308,20 @@ button.ghost {
   cursor: pointer;
 }
 
+.stop-btn {
+  background: rgba(255, 107, 107, 0.15);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
 .qr-popover {
   position: absolute;
   top: 44px;
-  right: 0;
+  left: 0;
+  z-index: 10;
   background: #fff;
   padding: 12px;
   border-radius: var(--radius);

@@ -8,6 +8,17 @@
 </head>
 <body>
   <div class="page">
+    <!-- 모든 화면 공통 상단바: 좌측 코드/QR, 우측 게임 중단 -->
+    <div class="host-toolbar">
+      <div class="code-corner">
+        <button id="host-code-badge" class="code-badge">----</button>
+        <div id="host-qr-popover" class="qr-popover hidden">
+          <canvas id="host-qr-canvas"></canvas>
+        </div>
+      </div>
+      <button id="host-stop-btn" class="stop-btn">⏹ 게임 중단</button>
+    </div>
+
     <!-- 참가자 관리 화면 -->
     <section id="manage-screen">
       <header class="hero">
@@ -36,12 +47,6 @@
 
     <!-- 게임 선택 화면 -->
     <section id="game-select-screen" class="hidden">
-      <div class="code-corner">
-        <button id="game-select-code-badge" class="code-badge">----</button>
-        <div id="game-select-qr-popover" class="qr-popover hidden">
-          <canvas id="game-select-qr-canvas"></canvas>
-        </div>
-      </div>
       <header class="hero">
         <h1>게임 선택</h1>
         <p id="game-select-count"></p>
