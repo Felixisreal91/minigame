@@ -93,8 +93,25 @@ const bluffingFinal = document.getElementById('bluffing-final');
 const bluffingSurvivorsList = document.getElementById('bluffing-survivors-list');
 const bluffingFinalEliminatedList = document.getElementById('bluffing-final-eliminated-list');
 
+const liarScreen = document.getElementById('liar-screen');
+const liarReady = document.getElementById('liar-ready');
+const liarReadyMessage = document.getElementById('liar-ready-message');
+const liarVoting = document.getElementById('liar-voting');
+const liarRoleMessage = document.getElementById('liar-role-message');
+const liarRoleSub = document.getElementById('liar-role-sub');
+const liarVoteButtons = document.getElementById('liar-vote-buttons');
+const liarVoteList = document.getElementById('liar-vote-list');
+const liarVoteDone = document.getElementById('liar-vote-done');
+const liarVoteStatus = document.getElementById('liar-vote-status');
+const liarResult = document.getElementById('liar-result');
+const liarResultBanner = document.getElementById('liar-result-banner');
+const liarResultPersonal = document.getElementById('liar-result-personal');
+const liarResultWord = document.getElementById('liar-result-word');
+const liarResultLiar = document.getElementById('liar-result-liar');
+const liarVoteTallyList = document.getElementById('liar-vote-tally-list');
+
 let joinedCode = null;
-let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number'
+let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game'
 let currentRound = null;
 let countdownTimer = null;
 let rafId = null;
@@ -104,6 +121,8 @@ let tolIsTrueSelected = null;
 let tolCurrentRound = null;
 let tolIsAuthorThisRound = false;
 let bluffingCurrentRound = null;
+let liarCurrentRound = null;
+let liarIsLiar = false;
 
 // QR 스캔으로 접속한 경우 코드 자동 채움
 const params = new URLSearchParams(location.search);
@@ -131,6 +150,54 @@ function showTopScreen(screen) {
   nunchiScreen.classList.toggle('hidden', screen !== 'nunchi');
   tolScreen.classList.toggle('hidden', screen !== 'truth-or-lie');
   bluffingScreen.classList.toggle('hidden', screen !== 'bluffing-number');
+  liarScreen.classList.toggle('hidden', screen !== 'liar-game');
+}
+
+function showLiarSubView(view) {
+  liarReady.classList.toggle('hidden', view !== 'ready');
+  liarVoting.classList.toggle('hidden', view !== 'voting');
+  liarResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderLiarVoteList(participants) {
+  liarVoteList.innerHTML = '';
+  participants
+    .filter((p) => p.id !== socket.id)
+    .forEach((p) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ghost liar-vote-btn';
+      btn.textContent = p.nickname;
+      btn.addEventListener('click', () => submitLiarVote(p.id));
+      liarVoteList.appendChild(btn);
+    });
+}
+
+function submitLiarVote(votedForId) {
+  Array.from(liarVoteList.children).forEach((b) => {
+    b.disabled = true;
+  });
+  socket.emit('player:submit-vote', { code: joinedCode, round: liarCurrentRound, votedForId }, (res) => {
+    if (res?.success) {
+      liarVoteButtons.classList.add('hidden');
+      liarVoteDone.classList.remove('hidden');
+      liarVoteStatus.textContent = '투표 완료! 기다리는 중...';
+    } else {
+      Array.from(liarVoteList.children).forEach((b) => {
+        b.disabled = false;
+      });
+      alert(res?.error || '투표에 실패했습니다.');
+    }
+  });
+}
+
+function renderLiarVoteTally(voteTally) {
+  liarVoteTallyList.innerHTML = voteTally
+    .map(
+      (v) =>
+        `<li class="${v.isLiar ? 'loser' : ''}">${escapeHtml(v.nickname)} — ${v.votes}표${v.isLiar ? ' (라이어)' : ''}</li>`
+    )
+    .join('');
 }
 
 function showBluffingSubView(view) {
@@ -327,6 +394,10 @@ joinRoomBtn.addEventListener('click', () => {
         showTopScreen('bluffing-number');
         showBluffingSubView('ready');
         bluffingReadyMessage.textContent = '라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!';
+      } else if (activeGame === 'liar-game') {
+        showTopScreen('liar-game');
+        showLiarSubView('ready');
+        liarReadyMessage.textContent = '라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!';
       } else {
         showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
       }
@@ -366,6 +437,10 @@ socket.on('game:launched', ({ game }) => {
     showTopScreen('bluffing-number');
     showBluffingSubView('ready');
     bluffingReadyMessage.textContent = '호스트가 범위를 정하고 있어요';
+  } else if (game === 'liar-game') {
+    showTopScreen('liar-game');
+    showLiarSubView('ready');
+    liarReadyMessage.textContent = '호스트가 준비 중이에요';
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -408,6 +483,10 @@ socket.on('game:round-reset', () => {
     showTopScreen('bluffing-number');
     showBluffingSubView('ready');
     bluffingReadyMessage.textContent = '호스트가 범위를 정하고 있어요';
+  } else if (activeGame === 'liar-game') {
+    showTopScreen('liar-game');
+    showLiarSubView('ready');
+    liarReadyMessage.textContent = '호스트가 다음 라운드를 준비하고 있어요';
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -652,4 +731,50 @@ socket.on('game:round-result', (payload) => {
 
   showTopScreen('bluffing-number');
   showBluffingSubView('result');
+});
+
+// ---- 라이어 게임 ----
+
+socket.on('game:liar-round-start', ({ round, isLiar, category, word, participants }) => {
+  if (activeGame !== 'liar-game') return;
+  liarCurrentRound = round;
+  liarIsLiar = isLiar;
+
+  if (isLiar) {
+    liarRoleMessage.textContent = '당신이 라이어입니다! 🤫';
+    liarRoleSub.textContent = category ? `카테고리: ${category}` : '아무 정보도 없어요. 잘 숨어보세요!';
+  } else {
+    liarRoleMessage.textContent = `제시어: ${word}`;
+    liarRoleSub.textContent = `카테고리: ${category}`;
+  }
+
+  liarVoteButtons.classList.remove('hidden');
+  liarVoteDone.classList.add('hidden');
+  renderLiarVoteList(participants);
+
+  showTopScreen('liar-game');
+  showLiarSubView('voting');
+});
+
+socket.on('game:vote-progress', ({ votedCount, totalParticipants }) => {
+  if (activeGame !== 'liar-game') return;
+  if (!liarVoteDone.classList.contains('hidden')) {
+    liarVoteStatus.textContent = `투표 완료! (${votedCount}/${totalParticipants}명 투표)`;
+  }
+});
+
+socket.on('game:round-result', ({ category, word, liarNickname, voteTally, participantsWin }) => {
+  if (activeGame !== 'liar-game') return;
+
+  liarResultBanner.textContent = participantsWin ? '🎉 참가자 승!' : '🤥 라이어 승!';
+  if (liarIsLiar) {
+    liarResultPersonal.textContent = participantsWin ? '당신이 들켰어요!' : '당신이 성공적으로 숨었어요!';
+  } else {
+    liarResultPersonal.textContent = participantsWin ? '참가자들이 라이어를 찾았어요!' : '라이어를 찾지 못했어요...';
+  }
+  liarResultWord.textContent = `${word} (${category})`;
+  liarResultLiar.textContent = `라이어는 ${liarNickname}였습니다`;
+  renderLiarVoteTally(voteTally);
+
+  showLiarSubView('result');
 });

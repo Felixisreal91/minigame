@@ -81,6 +81,11 @@
           <div class="game-card-title">블러핑 넘버</div>
           <div class="game-card-desc">겹치거나 가장 낮은 숫자를 고르면 탈락!</div>
         </div>
+        <div class="game-card game-card-preview game-card--liar-game">
+          <div class="game-card-emoji">🎭</div>
+          <div class="game-card-title">라이어 게임</div>
+          <div class="game-card-desc">라이어를 찾아라! 다수결로 못 맞히면 라이어 승</div>
+        </div>
       </div>
     </section>
 
@@ -268,6 +273,52 @@
             <ul class="participant-list" id="bluffing-final-eliminated-list"></ul>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- 게임 화면: 라이어 게임 -->
+    <section id="liar-screen" class="hidden">
+      <header class="hero">
+        <h1>라이어 게임</h1>
+        <p>라이어를 찾아라! 다수결로 못 맞히면 라이어 승</p>
+      </header>
+
+      <div id="liar-ready" class="center-block">
+        <p id="liar-ready-message" class="desc">호스트가 준비 중이에요</p>
+      </div>
+
+      <div id="liar-voting" class="hidden">
+        <div class="card" id="liar-role-card" style="text-align:center;">
+          <p id="liar-role-message" style="font-size:1.1rem; font-weight:700;"></p>
+          <p id="liar-role-sub" class="desc"></p>
+        </div>
+
+        <div id="liar-vote-buttons" class="hidden">
+          <p class="desc" style="text-align:center; margin-bottom:12px;">라이어라고 생각되는 사람에게 투표하세요</p>
+          <div class="liar-vote-list" id="liar-vote-list"></div>
+        </div>
+
+        <div id="liar-vote-done" class="center-block hidden">
+          <div class="spinner"></div>
+          <p id="liar-vote-status" class="desc"></p>
+        </div>
+      </div>
+
+      <div id="liar-result" class="hidden">
+        <div class="card" style="text-align:center;">
+          <p id="liar-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
+          <p id="liar-result-personal" class="desc"></p>
+        </div>
+        <div class="card" style="text-align:center;">
+          <p class="desc" style="margin:0;">제시어</p>
+          <p id="liar-result-word" style="font-size:1.2rem; font-weight:700;"></p>
+          <p id="liar-result-liar" class="desc"></p>
+        </div>
+        <div class="card">
+          <h2>투표 결과</h2>
+          <ul class="participant-list" id="liar-vote-tally-list"></ul>
+        </div>
+        <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
       </div>
     </section>
   </div>

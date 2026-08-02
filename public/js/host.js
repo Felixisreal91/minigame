@@ -24,6 +24,7 @@ const gameCardStopAt7 = document.getElementById('game-card-stop-at-7');
 const gameCardNunchi = document.getElementById('game-card-nunchi');
 const gameCardTruthOrLie = document.getElementById('game-card-truth-or-lie');
 const gameCardBluffingNumber = document.getElementById('game-card-bluffing-number');
+const gameCardLiarGame = document.getElementById('game-card-liar-game');
 const hostCodeBadge = document.getElementById('host-code-badge');
 const hostQrPopover = document.getElementById('host-qr-popover');
 const hostQrPopoverCode = document.getElementById('host-qr-popover-code');
@@ -93,8 +94,23 @@ const bluffingHostFinalEliminatedList = document.getElementById('bluffing-host-f
 const bluffingHostRestartBtn = document.getElementById('bluffing-host-restart-btn');
 const bluffingHostBackBtn = document.getElementById('bluffing-host-back-btn');
 
+const liarHostScreen = document.getElementById('liar-host-screen');
+const liarHostOption = document.getElementById('liar-host-option');
+const liarHostReady = document.getElementById('liar-host-ready');
+const liarHostReadyMessage = document.getElementById('liar-host-ready-message');
+const liarHostStartBtn = document.getElementById('liar-host-start-btn');
+const liarHostVoting = document.getElementById('liar-host-voting');
+const liarHostVoteProgress = document.getElementById('liar-host-vote-progress');
+const liarHostResult = document.getElementById('liar-host-result');
+const liarHostResultBanner = document.getElementById('liar-host-result-banner');
+const liarHostResultWord = document.getElementById('liar-host-result-word');
+const liarHostResultLiar = document.getElementById('liar-host-result-liar');
+const liarHostVoteTallyList = document.getElementById('liar-host-vote-tally-list');
+const liarHostNextRoundBtn = document.getElementById('liar-host-next-round-btn');
+const liarHostBackBtn = document.getElementById('liar-host-back-btn');
+
 let participantCount = 0;
-let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number'
+let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game'
 let countdownTimer = null;
 let currentTopScreen = null;
 
@@ -118,7 +134,28 @@ function showTopScreen(screen) {
   nunchiHostScreen.classList.toggle('hidden', screen !== 'nunchi-host');
   tolHostScreen.classList.toggle('hidden', screen !== 'tol-host');
   bluffingHostScreen.classList.toggle('hidden', screen !== 'bluffing-host');
+  liarHostScreen.classList.toggle('hidden', screen !== 'liar-host');
   hostStopBtn.classList.toggle('hidden', screen === 'game-select' || screen === 'manage');
+}
+
+function showLiarHostSubView(view) {
+  liarHostOption.classList.toggle('hidden', view !== 'option');
+  liarHostReady.classList.toggle('hidden', view !== 'ready');
+  liarHostVoting.classList.toggle('hidden', view !== 'voting');
+  liarHostResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderLiarHostVoteProgress(votedCount, totalParticipants) {
+  liarHostVoteProgress.textContent = `${votedCount}/${totalParticipants}명 투표`;
+}
+
+function renderLiarHostVoteTally(voteTally) {
+  liarHostVoteTallyList.innerHTML = voteTally
+    .map(
+      (v) =>
+        `<li class="${v.isLiar ? 'loser' : ''}">${escapeHtml(v.nickname)} — ${v.votes}표${v.isLiar ? ' (라이어)' : ''}</li>`
+    )
+    .join('');
 }
 
 function showBluffingHostSubView(view) {
@@ -322,6 +359,20 @@ socket.emit('host:attach', { code }, (res) => {
         showBluffingHostSubView('picking');
         renderBluffingHostPickProgress(gs.picks.length, gs.expectedPicks);
       }
+    } else if (res.currentGame === 'liar-game') {
+      showTopScreen('liar-host');
+      const gs = res.gameState;
+      if (gs.round === 0) {
+        showLiarHostSubView('ready');
+        liarHostReadyMessage.textContent = '시작을 누르면 라이어가 정해져요';
+      } else if (gs.liarId) {
+        // 라운드 도중 호스트가 새로고침한 경우: 진행 상황만 복원
+        showLiarHostSubView('voting');
+        renderLiarHostVoteProgress(gs.votes.length, gs.expectedVotes);
+      } else {
+        showLiarHostSubView('ready');
+        liarHostReadyMessage.textContent = '시작을 누르면 라이어가 정해져요';
+      }
     }
   }
 });
@@ -424,6 +475,40 @@ document.querySelectorAll('.bluffing-range-btn').forEach((btn) => {
   });
 });
 
+gameCardLiarGame.addEventListener('click', () => {
+  gameCardLiarGame.disabled = true;
+  socket.emit('host:launch-game', { code, game: 'liar-game' }, (res) => {
+    gameCardLiarGame.disabled = false;
+    if (res?.success) {
+      activeGame = 'liar-game';
+      showTopScreen('liar-host');
+      showLiarHostSubView('option');
+    } else {
+      alert(res?.error || '게임을 시작할 수 없습니다.');
+    }
+  });
+});
+
+document.querySelectorAll('.liar-option-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const revealCategory = btn.dataset.reveal === 'true';
+    document.querySelectorAll('.liar-option-btn').forEach((b) => {
+      b.disabled = true;
+    });
+    socket.emit('host:set-liar-option', { code, revealCategory }, (res) => {
+      document.querySelectorAll('.liar-option-btn').forEach((b) => {
+        b.disabled = false;
+      });
+      if (res?.success) {
+        showLiarHostSubView('ready');
+        liarHostReadyMessage.textContent = '시작을 누르면 라이어가 정해져요';
+      } else {
+        alert(res?.error || '옵션을 설정할 수 없습니다.');
+      }
+    });
+  });
+});
+
 gameHostStartBtn.addEventListener('click', () => {
   gameHostStartBtn.disabled = true;
   socket.emit('host:round-start', { code }, (res) => {
@@ -444,7 +529,7 @@ nunchiHostStartBtn.addEventListener('click', () => {
   });
 });
 
-function requestBluffingRoundStart(triggerBtn) {
+function requestRoundStart(triggerBtn) {
   triggerBtn.disabled = true;
   socket.emit('host:round-start', { code }, (res) => {
     triggerBtn.disabled = false;
@@ -454,8 +539,10 @@ function requestBluffingRoundStart(triggerBtn) {
   });
 }
 
-bluffingHostStartBtn.addEventListener('click', () => requestBluffingRoundStart(bluffingHostStartBtn));
-bluffingHostNextRoundBtn.addEventListener('click', () => requestBluffingRoundStart(bluffingHostNextRoundBtn));
+bluffingHostStartBtn.addEventListener('click', () => requestRoundStart(bluffingHostStartBtn));
+bluffingHostNextRoundBtn.addEventListener('click', () => requestRoundStart(bluffingHostNextRoundBtn));
+liarHostStartBtn.addEventListener('click', () => requestRoundStart(liarHostStartBtn));
+liarHostNextRoundBtn.addEventListener('click', () => requestRoundStart(liarHostNextRoundBtn));
 
 function requestTolNextRound() {
   socket.emit('host:next-round', { code }, (res) => {
@@ -501,6 +588,10 @@ socket.on('game:round-reset', () => {
     renderTolHostWritingProgress(0, participantCount);
   } else if (activeGame === 'bluffing-number') {
     showBluffingHostSubView('range');
+  } else if (activeGame === 'liar-game') {
+    liarHostStartBtn.disabled = false;
+    liarHostReadyMessage.textContent = '시작을 누르면 라이어가 정해져요';
+    showLiarHostSubView('ready');
   }
 });
 
@@ -563,6 +654,26 @@ socket.on('game:round-result', (payload) => {
   }
 
   showBluffingHostSubView('result');
+});
+
+socket.on('game:liar-round-start', () => {
+  if (activeGame !== 'liar-game') return;
+  showLiarHostSubView('voting');
+  renderLiarHostVoteProgress(0, participantCount);
+});
+
+socket.on('game:vote-progress', ({ votedCount, totalParticipants }) => {
+  if (activeGame !== 'liar-game') return;
+  renderLiarHostVoteProgress(votedCount, totalParticipants);
+});
+
+socket.on('game:round-result', ({ category, word, liarNickname, voteTally, participantsWin }) => {
+  if (activeGame !== 'liar-game') return;
+  liarHostResultBanner.textContent = participantsWin ? '🎉 참가자 승!' : '🤥 라이어 승!';
+  liarHostResultWord.textContent = `${word} (${category})`;
+  liarHostResultLiar.textContent = `라이어는 ${liarNickname}였습니다`;
+  renderLiarHostVoteTally(voteTally);
+  showLiarHostSubView('result');
 });
 
 gameHostResetBtn.addEventListener('click', () => {
@@ -637,8 +748,18 @@ bluffingHostBackBtn.addEventListener('click', () => {
   });
 });
 
+liarHostBackBtn.addEventListener('click', () => {
+  socket.emit('host:back-to-game-select', { code }, (res) => {
+    if (res?.success) {
+      showTopScreen('game-select');
+    } else {
+      alert(res?.error || '이동할 수 없습니다.');
+    }
+  });
+});
+
 hostStopBtn.addEventListener('click', () => {
-  const isMidGame = ['game-host', 'nunchi-host', 'tol-host', 'bluffing-host'].includes(currentTopScreen);
+  const isMidGame = ['game-host', 'nunchi-host', 'tol-host', 'bluffing-host', 'liar-host'].includes(currentTopScreen);
   if (isMidGame && !confirm('진행 중인 게임을 중단하고 게임 선택 화면으로 돌아갈까요?')) {
     return;
   }

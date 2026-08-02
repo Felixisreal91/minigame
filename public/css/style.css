@@ -259,6 +259,10 @@ button.ghost {
   border-left-color: #f2b84b;
 }
 
+.game-card--liar-game {
+  border-left-color: #4da6ff;
+}
+
 .game-card-preview {
   cursor: default;
 }
@@ -281,6 +285,10 @@ button.ghost {
 
 .game-card-preview.game-card--bluffing-number:hover {
   border-left-color: #f2b84b;
+}
+
+.game-card-preview.game-card--liar-game:hover {
+  border-left-color: #4da6ff;
 }
 
 .game-card-emoji {
@@ -413,6 +421,20 @@ button.ghost {
 }
 
 .bluffing-number-btn:disabled {
+  opacity: 0.35;
+}
+
+.liar-vote-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.liar-vote-btn {
+  width: 100%;
+}
+
+.liar-vote-btn:disabled {
   opacity: 0.35;
 }
 

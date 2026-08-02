@@ -49,7 +49,7 @@ const httpServer = app.listen(process.env.PORT || 3000, () => {
 const io = new Server(httpServer);
 
 // code -> { hostSocketId, participants: [{id, nickname}], status: 'waiting' | 'game-select' | 'playing',
-//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number',
+//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game',
 //           gameState: null | (게임별로 모양이 다름, createInitialGameState 참고) }
 //   stop-at-7: { round, results: [{id, nickname, elapsedMs, diffMs}] }
 //   nunchi:    { round, results: [{id, nickname}] (배열 순서 = 누른 순서), expectedCount }
@@ -63,9 +63,30 @@ const io = new Server(httpServer);
 //     range: null | {min:1, max}, round, alive: [id,...], picks: [{id,nickname,number}] (라운드마다 초기화),
 //     expectedPicks, eliminatedLog: [{nickname, round}] (누적), gameOver,
 //   }
+//   liar-game: {
+//     revealCategoryToLiar, round, category, word, liarId, liarNickname,
+//     roundParticipants: [{id,nickname}] (라운드 시작 시점 스냅샷, 투표 대상 고정용),
+//     votes: [{id, nickname, votedForId, votedForNickname}] (라운드마다 초기화), expectedVotes,
+//   }
 const rooms = new Map();
 
 const TARGET_MS = 7000;
+
+const LIAR_WORD_BANK = {
+  음식: ['김치', '라면', '삼겹살', '치킨', '피자', '초밥', '떡볶이', '짜장면', '아이스크림', '커피'],
+  동물: ['강아지', '고양이', '코끼리', '사자', '기린', '판다', '펭귄', '호랑이', '토끼', '다람쥐'],
+  직업: ['의사', '선생님', '경찰관', '요리사', '가수', '배우', '소방관', '변호사', '개발자', '화가'],
+  장소: ['학교', '병원', '도서관', '영화관', '공원', '놀이공원', '해수욕장', '카페', '시장', '미술관'],
+  스포츠: ['축구', '야구', '농구', '수영', '테니스', '배드민턴', '볼링', '골프', '탁구', '마라톤'],
+};
+
+function pickRandomWord() {
+  const categories = Object.keys(LIAR_WORD_BANK);
+  const category = categories[Math.floor(Math.random() * categories.length)];
+  const words = LIAR_WORD_BANK[category];
+  const word = words[Math.floor(Math.random() * words.length)];
+  return { category, word };
+}
 
 function sortedResults(gameState) {
   return [...gameState.results].sort((a, b) => a.diffMs - b.diffMs);
@@ -101,6 +122,19 @@ function createInitialGameState(game) {
       expectedPicks: 0,
       eliminatedLog: [],
       gameOver: false,
+    };
+  }
+  if (game === 'liar-game') {
+    return {
+      revealCategoryToLiar: false,
+      round: 0,
+      category: null,
+      word: null,
+      liarId: null,
+      liarNickname: null,
+      roundParticipants: [],
+      votes: [],
+      expectedVotes: 0,
     };
   }
   return { round: 1, results: [] };
@@ -238,6 +272,38 @@ function maybeResolveBluffingRound(code, room) {
   resolveBluffingRound(code, room);
 }
 
+function maybeResolveLiarRound(code, room) {
+  const gs = room.gameState;
+  if (!gs.liarId) return;
+  if (gs.votes.length < gs.expectedVotes) return;
+
+  const voteCounts = new Map();
+  gs.votes.forEach((v) => {
+    voteCounts.set(v.votedForId, (voteCounts.get(v.votedForId) || 0) + 1);
+  });
+  const maxVotes = Math.max(...voteCounts.values());
+  const topVotedIds = [...voteCounts.entries()].filter(([, count]) => count === maxVotes).map(([id]) => id);
+  const participantsWin = topVotedIds.includes(gs.liarId);
+
+  const voteTally = gs.roundParticipants
+    .map((p) => ({ nickname: p.nickname, votes: voteCounts.get(p.id) || 0, isLiar: p.id === gs.liarId }))
+    .sort((a, b) => b.votes - a.votes);
+
+  const payload = {
+    round: gs.round,
+    category: gs.category,
+    word: gs.word,
+    liarNickname: gs.liarNickname,
+    voteTally,
+    participantsWin,
+  };
+  io.to(code).emit('game:round-result', payload);
+  saveGameResult(code, 'liar-game', gs.round, payload);
+
+  // liarId를 비워서 동일 라운드에 대한 중복 정산(예: 투표 이벤트와 disconnect가 겹치는 경우)을 막는다
+  gs.liarId = null;
+}
+
 io.on('connection', (socket) => {
   socket.on('host:create-room', (_payload, ack) => {
     const code = generateRoomCode();
@@ -338,6 +404,16 @@ io.on('connection', (socket) => {
     ack?.({ success: true });
   });
 
+  socket.on('host:set-liar-option', ({ code, revealCategory } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.hostSocketId !== socket.id || room.currentGame !== 'liar-game' || !room.gameState) {
+      ack?.({ success: false, error: '옵션을 설정할 수 없습니다.' });
+      return;
+    }
+    room.gameState.revealCategoryToLiar = Boolean(revealCategory);
+    ack?.({ success: true });
+  });
+
   socket.on('host:round-start', ({ code } = {}, ack) => {
     const room = rooms.get(code);
     if (!room || room.hostSocketId !== socket.id || !room.gameState) {
@@ -362,6 +438,38 @@ io.on('connection', (socket) => {
       gs.picks = [];
       gs.expectedPicks = gs.alive.length;
       io.to(code).emit('game:round-start', { round: gs.round, min: gs.range.min, max: gs.range.max, alive: gs.alive });
+      ack?.({ success: true });
+      return;
+    }
+
+    if (room.currentGame === 'liar-game') {
+      const gs = room.gameState;
+      if (room.participants.length < 2) {
+        ack?.({ success: false, error: '참가자가 2명 이상이어야 시작할 수 있습니다.' });
+        return;
+      }
+      const { category, word } = pickRandomWord();
+      const roundParticipants = room.participants.map((p) => ({ id: p.id, nickname: p.nickname }));
+      const liar = roundParticipants[Math.floor(Math.random() * roundParticipants.length)];
+
+      gs.round += 1;
+      gs.category = category;
+      gs.word = word;
+      gs.liarId = liar.id;
+      gs.liarNickname = liar.nickname;
+      gs.roundParticipants = roundParticipants;
+      gs.votes = [];
+      gs.expectedVotes = roundParticipants.length;
+
+      const basePayload = { round: gs.round, participants: roundParticipants };
+      io.to(code)
+        .except(liar.id)
+        .emit('game:liar-round-start', { ...basePayload, isLiar: false, category, word });
+      io.to(liar.id).emit('game:liar-round-start', {
+        ...basePayload,
+        isLiar: true,
+        category: gs.revealCategoryToLiar ? category : null,
+      });
       ack?.({ success: true });
       return;
     }
@@ -590,6 +698,43 @@ io.on('connection', (socket) => {
     maybeRevealRoundResult(code, room);
   });
 
+  socket.on('player:submit-vote', ({ code, round, votedForId } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.status !== 'playing' || room.currentGame !== 'liar-game' || !room.gameState) {
+      ack?.({ success: false, error: '진행 중인 라운드가 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    if (!gs.liarId || round !== gs.round) {
+      ack?.({ success: false, error: '이미 종료된 라운드입니다.' });
+      return;
+    }
+    if (votedForId === socket.id) {
+      ack?.({ success: false, error: '본인에게는 투표할 수 없어요.' });
+      return;
+    }
+    const target = gs.roundParticipants.find((p) => p.id === votedForId);
+    if (!target) {
+      ack?.({ success: false, error: '올바르지 않은 투표 대상입니다.' });
+      return;
+    }
+    if (gs.votes.some((v) => v.id === socket.id)) {
+      ack?.({ success: false, error: '이미 투표했습니다.' });
+      return;
+    }
+
+    const nickname = socket.data.nickname || '참가자';
+    gs.votes.push({ id: socket.id, nickname, votedForId, votedForNickname: target.nickname });
+    ack?.({ success: true });
+
+    io.to(code).emit('game:vote-progress', {
+      votedCount: gs.votes.length,
+      totalParticipants: gs.expectedVotes,
+    });
+
+    maybeResolveLiarRound(code, room);
+  });
+
   socket.on('host:reset-round', ({ code } = {}, ack) => {
     const room = rooms.get(code);
     if (!room || room.hostSocketId !== socket.id || !room.gameState) {
@@ -601,6 +746,10 @@ io.on('connection', (socket) => {
       room.gameState.expectedCount = room.participants.length;
     } else if (room.currentGame === 'bluffing-number') {
       room.gameState = createInitialGameState('bluffing-number');
+    } else if (room.currentGame === 'liar-game') {
+      const revealCategoryToLiar = room.gameState.revealCategoryToLiar;
+      room.gameState = createInitialGameState('liar-game');
+      room.gameState.revealCategoryToLiar = revealCategoryToLiar;
     } else {
       if (room.currentGame === 'stop-at-7' && room.gameState.results.length > 0) {
         saveGameResult(code, 'stop-at-7', room.gameState.round, { results: sortedResults(room.gameState) });
@@ -701,6 +850,16 @@ io.on('connection', (socket) => {
           } else {
             maybeResolveBluffingRound(code, room);
           }
+        }
+      } else if (room.currentGame === 'liar-game' && room.status === 'playing' && room.gameState.liarId) {
+        const gs = room.gameState;
+        const wasInRound = gs.roundParticipants.some((p) => p.id === socket.id);
+        if (wasInRound) {
+          const hadVoted = gs.votes.some((v) => v.id === socket.id);
+          if (!hadVoted) {
+            gs.expectedVotes = Math.max(0, gs.expectedVotes - 1);
+          }
+          maybeResolveLiarRound(code, room);
         }
       }
     }

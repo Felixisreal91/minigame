@@ -73,6 +73,11 @@
           <div class="game-card-title">블러핑 넘버</div>
           <div class="game-card-desc">겹치거나 가장 낮은 숫자를 고르면 탈락!</div>
         </button>
+        <button class="game-card game-card--liar-game" id="game-card-liar-game">
+          <div class="game-card-emoji">🎭</div>
+          <div class="game-card-title">라이어 게임</div>
+          <div class="game-card-desc">라이어를 찾아라! 다수결로 못 맞히면 라이어 승</div>
+        </button>
       </div>
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -249,6 +254,49 @@
           <button id="bluffing-host-restart-btn" class="primary">다시하기</button>
           <button id="bluffing-host-back-btn" class="ghost">게임 목록으로</button>
         </div>
+      </div>
+    </section>
+
+    <!-- 게임: 라이어 게임 -->
+    <section id="liar-host-screen" class="hidden">
+      <header class="hero">
+        <h1>라이어 게임</h1>
+        <p>라이어를 찾아라! 다수결로 못 맞히면 라이어 승</p>
+      </header>
+
+      <div id="liar-host-option" class="center-block">
+        <p class="desc">라이어에게 카테고리를 공개할까요?</p>
+        <div class="tol-truth-toggle">
+          <button class="tol-toggle-btn liar-option-btn" data-reveal="true">카테고리 공개</button>
+          <button class="tol-toggle-btn liar-option-btn" data-reveal="false">카테고리 비공개</button>
+        </div>
+      </div>
+
+      <div id="liar-host-ready" class="center-block hidden">
+        <p class="desc" id="liar-host-ready-message"></p>
+        <button id="liar-host-start-btn" class="primary">시작</button>
+      </div>
+
+      <div id="liar-host-voting" class="center-block hidden">
+        <div class="spinner"></div>
+        <p class="desc" id="liar-host-vote-progress">0/0명 투표</p>
+      </div>
+
+      <div id="liar-host-result" class="hidden">
+        <div class="card" style="text-align:center;">
+          <p id="liar-host-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
+        </div>
+        <div class="card" style="text-align:center;">
+          <p class="desc" style="margin:0;">제시어</p>
+          <p id="liar-host-result-word" style="font-size:1.2rem; font-weight:700;"></p>
+          <p id="liar-host-result-liar" class="desc"></p>
+        </div>
+        <div class="card">
+          <h2>투표 결과</h2>
+          <ul class="participant-list" id="liar-host-vote-tally-list"></ul>
+        </div>
+        <button id="liar-host-next-round-btn" class="primary">다시하기</button>
+        <button id="liar-host-back-btn" class="ghost">게임 목록으로</button>
       </div>
     </section>
   </div>
