@@ -69,6 +69,11 @@
           <div class="game-card-title">눈치게임</div>
           <div class="game-card-desc">다른 사람보다 먼저 누르세요! 마지막에 누르면 져요</div>
         </div>
+        <div class="game-card game-card-preview">
+          <div class="game-card-emoji">🤥</div>
+          <div class="game-card-title">진실 혹은 거짓</div>
+          <div class="game-card-desc">문장을 쓰고, 서로 진실인지 거짓인지 맞혀보세요</div>
+        </div>
       </div>
     </section>
 
@@ -132,6 +137,76 @@
           <h2>결과 공개</h2>
           <ul class="participant-list" id="nunchi-reveal-list"></ul>
         </div>
+      </div>
+    </section>
+
+    <!-- 게임 화면: 진실 혹은 거짓 -->
+    <section id="tol-screen" class="hidden">
+      <header class="hero">
+        <h1>진실 혹은 거짓</h1>
+        <p>문장을 쓰고, 서로 진실인지 거짓인지 맞혀보세요</p>
+      </header>
+
+      <!-- 문장 작성 -->
+      <div id="tol-writing" class="hidden">
+        <div class="card" id="tol-write-form">
+          <h2>내 문장 작성하기</h2>
+          <p class="desc" style="margin:0;">나에 대한 문장을 하나 적고, 진실인지 거짓인지 선택하세요</p>
+          <textarea id="tol-sentence-input" maxlength="100" rows="3" placeholder="예: 나는 스카이다이빙을 해본 적이 있다"></textarea>
+          <div class="tol-truth-toggle">
+            <button type="button" id="tol-truth-btn" class="tol-toggle-btn">진실</button>
+            <button type="button" id="tol-lie-btn" class="tol-toggle-btn">거짓</button>
+          </div>
+          <button id="tol-submit-sentence-btn" class="primary">제출하기</button>
+          <p id="tol-write-error" class="error-text"></p>
+        </div>
+        <div id="tol-write-done" class="center-block hidden">
+          <div class="spinner"></div>
+          <p id="tol-write-progress" class="desc">제출 완료! 다른 사람들을 기다리는 중...</p>
+        </div>
+      </div>
+
+      <!-- 라운드 진행 중: 문장 공개 -->
+      <div id="tol-reveal" class="hidden">
+        <p class="desc" id="tol-round-indicator" style="text-align:center;"></p>
+        <div class="card" style="text-align:center;">
+          <p id="tol-reveal-sentence" style="font-size:1.2rem; font-weight:700;"></p>
+        </div>
+
+        <div id="tol-guess-buttons" class="center-block hidden">
+          <div class="tol-truth-toggle">
+            <button id="tol-guess-true-btn" class="tol-toggle-btn">진실</button>
+            <button id="tol-guess-false-btn" class="tol-toggle-btn">거짓</button>
+          </div>
+        </div>
+
+        <div id="tol-author-wait" class="center-block hidden">
+          <div class="spinner"></div>
+          <p class="desc" id="tol-author-wait-text">이건 당신이 쓴 문장이에요! 다른 사람들이 맞히는 중...</p>
+        </div>
+
+        <div id="tol-guess-done" class="center-block hidden">
+          <div class="spinner"></div>
+          <p id="tol-guess-progress" class="desc">답변 제출 완료! 기다리는 중...</p>
+        </div>
+      </div>
+
+      <!-- 결과 공개 -->
+      <div id="tol-result" class="hidden">
+        <p class="desc" id="tol-result-round-indicator" style="text-align:center;"></p>
+        <div class="card" style="text-align:center;">
+          <p id="tol-result-sentence" style="font-size:1.1rem; font-weight:700;"></p>
+          <p id="tol-result-answer" class="desc"></p>
+        </div>
+        <div class="card">
+          <h2>정답자 <span id="tol-correct-count"></span></h2>
+          <ul class="participant-list" id="tol-correct-list"></ul>
+        </div>
+        <div class="card">
+          <h2>오답자 <span id="tol-incorrect-count"></span></h2>
+          <ul class="participant-list" id="tol-incorrect-list"></ul>
+        </div>
+        <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
       </div>
     </section>
   </div>

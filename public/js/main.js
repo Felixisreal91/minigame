@@ -41,13 +41,47 @@ const nunchiPressStatus = document.getElementById('nunchi-press-status');
 const nunchiReveal = document.getElementById('nunchi-reveal');
 const nunchiRevealList = document.getElementById('nunchi-reveal-list');
 
+const tolScreen = document.getElementById('tol-screen');
+const tolWriting = document.getElementById('tol-writing');
+const tolWriteForm = document.getElementById('tol-write-form');
+const tolWriteDone = document.getElementById('tol-write-done');
+const tolWriteProgress = document.getElementById('tol-write-progress');
+const tolSentenceInput = document.getElementById('tol-sentence-input');
+const tolTruthBtn = document.getElementById('tol-truth-btn');
+const tolLieBtn = document.getElementById('tol-lie-btn');
+const tolSubmitSentenceBtn = document.getElementById('tol-submit-sentence-btn');
+const tolWriteError = document.getElementById('tol-write-error');
+
+const tolReveal = document.getElementById('tol-reveal');
+const tolRoundIndicator = document.getElementById('tol-round-indicator');
+const tolRevealSentence = document.getElementById('tol-reveal-sentence');
+const tolGuessButtons = document.getElementById('tol-guess-buttons');
+const tolGuessTrueBtn = document.getElementById('tol-guess-true-btn');
+const tolGuessFalseBtn = document.getElementById('tol-guess-false-btn');
+const tolAuthorWait = document.getElementById('tol-author-wait');
+const tolAuthorWaitText = document.getElementById('tol-author-wait-text');
+const tolGuessDone = document.getElementById('tol-guess-done');
+const tolGuessProgress = document.getElementById('tol-guess-progress');
+
+const tolResult = document.getElementById('tol-result');
+const tolResultRoundIndicator = document.getElementById('tol-result-round-indicator');
+const tolResultSentence = document.getElementById('tol-result-sentence');
+const tolResultAnswer = document.getElementById('tol-result-answer');
+const tolCorrectCount = document.getElementById('tol-correct-count');
+const tolCorrectList = document.getElementById('tol-correct-list');
+const tolIncorrectCount = document.getElementById('tol-incorrect-count');
+const tolIncorrectList = document.getElementById('tol-incorrect-list');
+
 let joinedCode = null;
-let activeGame = null; // 'stop-at-7' | 'nunchi'
+let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie'
 let currentRound = null;
 let countdownTimer = null;
 let rafId = null;
 let stopwatchStartAt = null;
 let myNunchiOrder = null;
+let tolIsTrueSelected = null;
+let tolCurrentRound = null;
+let tolIsAuthorThisRound = false;
 
 // QR 스캔으로 접속한 경우 코드 자동 채움
 const params = new URLSearchParams(location.search);
@@ -73,6 +107,33 @@ function showTopScreen(screen) {
   gameSelectMirrorScreen.classList.toggle('hidden', screen !== 'game-select');
   gameScreen.classList.toggle('hidden', screen !== 'stop-at-7');
   nunchiScreen.classList.toggle('hidden', screen !== 'nunchi');
+  tolScreen.classList.toggle('hidden', screen !== 'truth-or-lie');
+}
+
+function showTolSubView(view) {
+  tolWriting.classList.toggle('hidden', view !== 'writing');
+  tolReveal.classList.toggle('hidden', view !== 'reveal');
+  tolResult.classList.toggle('hidden', view !== 'result');
+}
+
+function resetTolWriteForm() {
+  tolWriteForm.classList.remove('hidden');
+  tolWriteDone.classList.add('hidden');
+  tolSentenceInput.value = '';
+  tolSentenceInput.disabled = false;
+  tolIsTrueSelected = null;
+  tolTruthBtn.classList.remove('selected');
+  tolLieBtn.classList.remove('selected');
+  tolSubmitSentenceBtn.disabled = false;
+  tolWriteError.textContent = '';
+}
+
+function showTolSpectatorWaiting(message) {
+  showTopScreen('truth-or-lie');
+  showTolSubView('writing');
+  tolWriteForm.classList.add('hidden');
+  tolWriteDone.classList.remove('hidden');
+  tolWriteProgress.textContent = message;
 }
 
 function renderMirrorParticipants(participants) {
@@ -161,7 +222,11 @@ joinRoomBtn.addEventListener('click', () => {
 
     if (res.status === 'playing' && res.currentGame) {
       activeGame = res.currentGame;
-      showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
+      if (activeGame === 'truth-or-lie') {
+        showTolSpectatorWaiting('라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!');
+      } else {
+        showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
+      }
       return;
     }
 
@@ -190,7 +255,13 @@ socket.on('game:select-screen', () => {
 socket.on('game:launched', ({ game }) => {
   if (!joinedCode) return;
   activeGame = game;
-  showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
+  if (game === 'truth-or-lie') {
+    showTopScreen('truth-or-lie');
+    showTolSubView('writing');
+    resetTolWriteForm();
+  } else {
+    showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
+  }
 });
 
 socket.on('game:round-start', ({ round }) => {
@@ -210,7 +281,13 @@ socket.on('game:round-reset', () => {
   clearInterval(countdownTimer);
   cancelAnimationFrame(rafId);
   myNunchiOrder = null;
-  showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
+  if (activeGame === 'truth-or-lie') {
+    showTopScreen('truth-or-lie');
+    showTolSubView('writing');
+    resetTolWriteForm();
+  } else {
+    showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
+  }
 });
 
 // ---- 7초 맞히기 ----
@@ -301,3 +378,131 @@ function renderNunchiReveal(results) {
     })
     .join('');
 }
+
+// ---- 진실 혹은 거짓 ----
+
+tolTruthBtn.addEventListener('click', () => {
+  tolIsTrueSelected = true;
+  tolTruthBtn.classList.add('selected');
+  tolLieBtn.classList.remove('selected');
+});
+
+tolLieBtn.addEventListener('click', () => {
+  tolIsTrueSelected = false;
+  tolLieBtn.classList.add('selected');
+  tolTruthBtn.classList.remove('selected');
+});
+
+tolSubmitSentenceBtn.addEventListener('click', () => {
+  const sentence = tolSentenceInput.value.trim();
+  tolWriteError.textContent = '';
+
+  if (!sentence) {
+    tolWriteError.textContent = '문장을 입력해주세요.';
+    return;
+  }
+  if (sentence.length > 100) {
+    tolWriteError.textContent = '100자 이하로 입력해주세요.';
+    return;
+  }
+  if (tolIsTrueSelected === null) {
+    tolWriteError.textContent = '진실인지 거짓인지 선택해주세요.';
+    return;
+  }
+
+  tolSubmitSentenceBtn.disabled = true;
+  socket.emit(
+    'player:submit-sentence',
+    { code: joinedCode, sentence, isTrue: tolIsTrueSelected },
+    (res) => {
+      if (res?.success) {
+        tolWriteForm.classList.add('hidden');
+        tolWriteDone.classList.remove('hidden');
+        tolWriteProgress.textContent = '제출 완료! 다른 사람들을 기다리는 중...';
+      } else {
+        tolSubmitSentenceBtn.disabled = false;
+        tolWriteError.textContent = res?.error || '제출에 실패했습니다.';
+      }
+    }
+  );
+});
+
+socket.on('game:writing-progress', ({ submittedCount, totalParticipants }) => {
+  if (activeGame !== 'truth-or-lie') return;
+  if (!tolWriteDone.classList.contains('hidden')) {
+    tolWriteProgress.textContent = `제출 완료! ${submittedCount}/${totalParticipants}명 제출됨`;
+  }
+});
+
+socket.on('game:writing-complete', () => {
+  if (activeGame !== 'truth-or-lie') return;
+  tolWriteForm.classList.add('hidden');
+  tolWriteDone.classList.remove('hidden');
+  tolWriteProgress.textContent = '모든 문장이 준비됐어요! 호스트가 첫 라운드를 시작하면 시작돼요';
+});
+
+socket.on('game:round-reveal', ({ sentence, roundNumber, totalRounds, isAuthor }) => {
+  if (activeGame !== 'truth-or-lie') return;
+  tolCurrentRound = roundNumber;
+  tolIsAuthorThisRound = isAuthor;
+
+  tolRoundIndicator.textContent = `${roundNumber}/${totalRounds} 라운드`;
+  tolRevealSentence.textContent = sentence;
+
+  tolGuessButtons.classList.toggle('hidden', isAuthor);
+  tolAuthorWait.classList.toggle('hidden', !isAuthor);
+  tolAuthorWaitText.textContent = '이건 당신이 쓴 문장이에요! 다른 사람들이 맞히는 중...';
+  tolGuessDone.classList.add('hidden');
+  tolGuessTrueBtn.disabled = false;
+  tolGuessFalseBtn.disabled = false;
+
+  showTopScreen('truth-or-lie');
+  showTolSubView('reveal');
+});
+
+function submitTolGuess(guess) {
+  tolGuessTrueBtn.disabled = true;
+  tolGuessFalseBtn.disabled = true;
+  socket.emit('player:submit-guess', { code: joinedCode, round: tolCurrentRound, guess }, (res) => {
+    if (res?.success) {
+      tolGuessButtons.classList.add('hidden');
+      tolGuessDone.classList.remove('hidden');
+      tolGuessProgress.textContent = '답변 제출 완료! 기다리는 중...';
+    } else {
+      tolGuessTrueBtn.disabled = false;
+      tolGuessFalseBtn.disabled = false;
+      alert(res?.error || '답변 제출에 실패했습니다.');
+    }
+  });
+}
+
+tolGuessTrueBtn.addEventListener('click', () => submitTolGuess(true));
+tolGuessFalseBtn.addEventListener('click', () => submitTolGuess(false));
+
+socket.on('game:guess-progress', ({ answeredCount, totalParticipants }) => {
+  if (activeGame !== 'truth-or-lie') return;
+  const progress = `${answeredCount}/${totalParticipants}명 응답`;
+  if (tolIsAuthorThisRound) {
+    tolAuthorWaitText.textContent = `이건 당신이 쓴 문장이에요! 다른 사람들이 맞히는 중... (${progress})`;
+  } else if (!tolGuessDone.classList.contains('hidden')) {
+    tolGuessProgress.textContent = `답변 제출 완료! (${progress})`;
+  }
+});
+
+socket.on('game:round-result', ({ sentence, isTrue, authorNickname, correctGuessers, incorrectGuessers, roundNumber, totalRounds }) => {
+  if (activeGame !== 'truth-or-lie') return;
+
+  tolResultRoundIndicator.textContent = `${roundNumber}/${totalRounds} 라운드`;
+  tolResultSentence.textContent = sentence;
+  tolResultAnswer.textContent = `정답: ${isTrue ? '진실' : '거짓'} · 작성자: ${authorNickname}`;
+  tolCorrectCount.textContent = `${correctGuessers.length}명`;
+  tolIncorrectCount.textContent = `${incorrectGuessers.length}명`;
+  tolCorrectList.innerHTML = correctGuessers
+    .map((n, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(n)}</li>`)
+    .join('');
+  tolIncorrectList.innerHTML = incorrectGuessers
+    .map((n, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(n)}</li>`)
+    .join('');
+
+  showTolSubView('result');
+});

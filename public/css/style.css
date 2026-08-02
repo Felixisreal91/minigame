@@ -72,7 +72,8 @@ header.hero p {
   font-size: 0.85rem;
 }
 
-input[type="text"] {
+input[type="text"],
+textarea {
   width: 100%;
   padding: 14px 16px;
   border-radius: 12px;
@@ -81,9 +82,12 @@ input[type="text"] {
   color: var(--text);
   font-size: 1rem;
   letter-spacing: 0.02em;
+  font-family: inherit;
+  resize: vertical;
 }
 
-input[type="text"]:focus {
+input[type="text"]:focus,
+textarea:focus {
   outline: 2px solid var(--primary);
 }
 
@@ -255,6 +259,30 @@ button.ghost {
 .participant-list li.loser {
   background: rgba(255, 107, 107, 0.18);
   border: 1px solid var(--danger);
+}
+
+.tol-truth-toggle {
+  display: flex;
+  gap: 10px;
+}
+
+.tol-toggle-btn {
+  flex: 1;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 2px solid transparent;
+  padding: 16px;
+  font-size: 1.05rem;
+}
+
+.tol-toggle-btn.selected {
+  border-color: var(--primary);
+  background: var(--surface-2);
+  color: var(--primary);
+}
+
+.tol-toggle-btn:disabled {
+  opacity: 0.4;
 }
 
 #game-select-screen {

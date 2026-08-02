@@ -7,6 +7,7 @@ const manageScreen = document.getElementById('manage-screen');
 const gameSelectScreen = document.getElementById('game-select-screen');
 const gameHostScreen = document.getElementById('game-host-screen');
 const nunchiHostScreen = document.getElementById('nunchi-host-screen');
+const tolHostScreen = document.getElementById('tol-host-screen');
 
 const roomCodeEl = document.getElementById('room-code');
 const qrCanvas = document.getElementById('qr-canvas');
@@ -21,6 +22,7 @@ const gameSelectParticipantCountEl = document.getElementById('game-select-partic
 const gameSelectEmptyParticipantsEl = document.getElementById('game-select-empty-participants');
 const gameCardStopAt7 = document.getElementById('game-card-stop-at-7');
 const gameCardNunchi = document.getElementById('game-card-nunchi');
+const gameCardTruthOrLie = document.getElementById('game-card-truth-or-lie');
 const gameSelectCodeBadge = document.getElementById('game-select-code-badge');
 const gameSelectQrPopover = document.getElementById('game-select-qr-popover');
 const gameSelectQrCanvas = document.getElementById('game-select-qr-canvas');
@@ -48,8 +50,28 @@ const nunchiHostRevealList = document.getElementById('nunchi-host-reveal-list');
 const nunchiHostResetBtn = document.getElementById('nunchi-host-reset-btn');
 const nunchiHostBackBtn = document.getElementById('nunchi-host-back-btn');
 
+const tolHostWriting = document.getElementById('tol-host-writing');
+const tolHostWritingProgress = document.getElementById('tol-host-writing-progress');
+const tolHostWritingComplete = document.getElementById('tol-host-writing-complete');
+const tolHostFirstRoundBtn = document.getElementById('tol-host-first-round-btn');
+const tolHostReveal = document.getElementById('tol-host-reveal');
+const tolHostRoundIndicator = document.getElementById('tol-host-round-indicator');
+const tolHostRevealSentence = document.getElementById('tol-host-reveal-sentence');
+const tolHostGuessProgress = document.getElementById('tol-host-guess-progress');
+const tolHostResult = document.getElementById('tol-host-result');
+const tolHostResultRoundIndicator = document.getElementById('tol-host-result-round-indicator');
+const tolHostResultSentence = document.getElementById('tol-host-result-sentence');
+const tolHostResultAnswer = document.getElementById('tol-host-result-answer');
+const tolHostCorrectCount = document.getElementById('tol-host-correct-count');
+const tolHostCorrectList = document.getElementById('tol-host-correct-list');
+const tolHostIncorrectCount = document.getElementById('tol-host-incorrect-count');
+const tolHostIncorrectList = document.getElementById('tol-host-incorrect-list');
+const tolHostNextRoundBtn = document.getElementById('tol-host-next-round-btn');
+const tolHostRestartBtn = document.getElementById('tol-host-restart-btn');
+const tolHostBackBtn = document.getElementById('tol-host-back-btn');
+
 let participantCount = 0;
-let activeGame = null; // 'stop-at-7' | 'nunchi'
+let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie'
 let countdownTimer = null;
 
 if (!code) {
@@ -69,6 +91,47 @@ function showTopScreen(screen) {
   gameSelectScreen.classList.toggle('hidden', screen !== 'game-select');
   gameHostScreen.classList.toggle('hidden', screen !== 'game-host');
   nunchiHostScreen.classList.toggle('hidden', screen !== 'nunchi-host');
+  tolHostScreen.classList.toggle('hidden', screen !== 'tol-host');
+}
+
+function showTolHostSubView(view) {
+  tolHostWriting.classList.toggle('hidden', view !== 'writing');
+  tolHostWritingComplete.classList.toggle('hidden', view !== 'writing-complete');
+  tolHostReveal.classList.toggle('hidden', view !== 'reveal');
+  tolHostResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderTolHostWritingProgress(submittedCount, totalParticipants) {
+  tolHostWritingProgress.textContent = `${submittedCount}/${totalParticipants}명 제출`;
+}
+
+function renderTolHostGuessProgress(answeredCount, totalParticipants) {
+  tolHostGuessProgress.textContent = `${answeredCount}/${totalParticipants}명 응답`;
+}
+
+function renderTolHostResult({
+  sentence,
+  isTrue,
+  authorNickname,
+  correctGuessers,
+  incorrectGuessers,
+  roundNumber,
+  totalRounds,
+  isLastRound,
+}) {
+  tolHostResultRoundIndicator.textContent = `${roundNumber}/${totalRounds} 라운드`;
+  tolHostResultSentence.textContent = sentence;
+  tolHostResultAnswer.textContent = `정답: ${isTrue ? '진실' : '거짓'} · 작성자: ${authorNickname}`;
+  tolHostCorrectCount.textContent = `${correctGuessers.length}명`;
+  tolHostIncorrectCount.textContent = `${incorrectGuessers.length}명`;
+  tolHostCorrectList.innerHTML = correctGuessers
+    .map((n, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(n)}</li>`)
+    .join('');
+  tolHostIncorrectList.innerHTML = incorrectGuessers
+    .map((n, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(n)}</li>`)
+    .join('');
+  tolHostNextRoundBtn.classList.toggle('hidden', isLastRound);
+  tolHostRestartBtn.classList.toggle('hidden', !isLastRound);
 }
 
 function showHostGameSubView(view) {
@@ -169,6 +232,22 @@ socket.emit('host:attach', { code }, (res) => {
       showTopScreen('nunchi-host');
       showNunchiSubView('progress');
       renderNunchiProgress(res.gameState.results.length, res.gameState.expectedCount ?? res.participants.length);
+    } else if (res.currentGame === 'truth-or-lie') {
+      showTopScreen('tol-host');
+      const gs = res.gameState;
+      if (gs.phase === 'writing') {
+        showTolHostSubView('writing');
+        renderTolHostWritingProgress(gs.sentences.length, gs.expectedCount);
+      } else if (gs.phase === 'writing-complete') {
+        showTolHostSubView('writing-complete');
+      } else {
+        // 'guessing' 또는 'result' 중 호스트가 새로고침한 경우: 현재 문장만 복원
+        const authorEntry = gs.sentences.find((s) => s.id === gs.order[gs.currentIndex]);
+        tolHostRoundIndicator.textContent = `${gs.currentIndex + 1}/${gs.order.length} 라운드`;
+        tolHostRevealSentence.textContent = authorEntry ? authorEntry.sentence : '';
+        renderTolHostGuessProgress(gs.guesses.length, gs.expectedGuessers);
+        showTolHostSubView('reveal');
+      }
     }
   }
 });
@@ -222,6 +301,21 @@ gameCardNunchi.addEventListener('click', () => {
   });
 });
 
+gameCardTruthOrLie.addEventListener('click', () => {
+  gameCardTruthOrLie.disabled = true;
+  socket.emit('host:launch-game', { code, game: 'truth-or-lie' }, (res) => {
+    gameCardTruthOrLie.disabled = false;
+    if (res?.success) {
+      activeGame = 'truth-or-lie';
+      showTopScreen('tol-host');
+      showTolHostSubView('writing');
+      renderTolHostWritingProgress(0, participantCount);
+    } else {
+      alert(res?.error || '게임을 시작할 수 없습니다.');
+    }
+  });
+});
+
 gameHostStartBtn.addEventListener('click', () => {
   gameHostStartBtn.disabled = true;
   socket.emit('host:round-start', { code }, (res) => {
@@ -241,6 +335,17 @@ nunchiHostStartBtn.addEventListener('click', () => {
     }
   });
 });
+
+function requestTolNextRound() {
+  socket.emit('host:next-round', { code }, (res) => {
+    if (!res?.success) {
+      alert(res?.error || '다음 라운드로 넘어갈 수 없습니다.');
+    }
+  });
+}
+
+tolHostFirstRoundBtn.addEventListener('click', requestTolNextRound);
+tolHostNextRoundBtn.addEventListener('click', requestTolNextRound);
 
 socket.on('game:round-start', () => {
   if (activeGame === 'stop-at-7') {
@@ -267,6 +372,9 @@ socket.on('game:round-reset', () => {
   } else if (activeGame === 'nunchi') {
     nunchiHostStartBtn.disabled = false;
     showNunchiSubView('ready');
+  } else if (activeGame === 'truth-or-lie') {
+    showTolHostSubView('writing');
+    renderTolHostWritingProgress(0, participantCount);
   }
 });
 
@@ -281,6 +389,35 @@ socket.on('game:press-update', ({ pressedCount, totalParticipants }) => {
 socket.on('game:round-end', ({ results }) => {
   renderNunchiReveal(results);
   showNunchiSubView('reveal');
+});
+
+socket.on('game:writing-progress', ({ submittedCount, totalParticipants }) => {
+  if (activeGame !== 'truth-or-lie') return;
+  renderTolHostWritingProgress(submittedCount, totalParticipants);
+});
+
+socket.on('game:writing-complete', () => {
+  if (activeGame !== 'truth-or-lie') return;
+  showTolHostSubView('writing-complete');
+});
+
+socket.on('game:round-reveal', ({ sentence, roundNumber, totalRounds }) => {
+  if (activeGame !== 'truth-or-lie') return;
+  tolHostRoundIndicator.textContent = `${roundNumber}/${totalRounds} 라운드`;
+  tolHostRevealSentence.textContent = sentence;
+  renderTolHostGuessProgress(0, participantCount);
+  showTolHostSubView('reveal');
+});
+
+socket.on('game:guess-progress', ({ answeredCount, totalParticipants }) => {
+  if (activeGame !== 'truth-or-lie') return;
+  renderTolHostGuessProgress(answeredCount, totalParticipants);
+});
+
+socket.on('game:round-result', (payload) => {
+  if (activeGame !== 'truth-or-lie') return;
+  renderTolHostResult(payload);
+  showTolHostSubView('result');
 });
 
 gameHostResetBtn.addEventListener('click', () => {
@@ -310,6 +447,24 @@ nunchiHostResetBtn.addEventListener('click', () => {
 });
 
 nunchiHostBackBtn.addEventListener('click', () => {
+  socket.emit('host:back-to-game-select', { code }, (res) => {
+    if (res?.success) {
+      showTopScreen('game-select');
+    } else {
+      alert(res?.error || '이동할 수 없습니다.');
+    }
+  });
+});
+
+tolHostRestartBtn.addEventListener('click', () => {
+  socket.emit('host:reset-round', { code }, (res) => {
+    if (!res?.success) {
+      alert(res?.error || '다시 시작할 수 없습니다.');
+    }
+  });
+});
+
+tolHostBackBtn.addEventListener('click', () => {
   socket.emit('host:back-to-game-select', { code }, (res) => {
     if (res?.success) {
       showTopScreen('game-select');
