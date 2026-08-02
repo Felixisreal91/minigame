@@ -210,9 +210,14 @@ button.ghost {
   margin-bottom: 24px;
 }
 
+#game-select-mirror-screen .card {
+  margin-bottom: 24px;
+}
+
 .game-card {
   background: var(--surface);
   border: 1px solid var(--surface-2);
+  border-left-width: 4px;
   border-radius: var(--radius);
   padding: 22px;
   display: flex;
@@ -228,12 +233,44 @@ button.ghost {
   border-color: var(--primary);
 }
 
+.game-card--stop-at-7 {
+  border-left-color: #00d2a0;
+}
+
+.game-card--nunchi {
+  border-left-color: #ff8a5c;
+}
+
+.game-card--truth-or-lie {
+  border-left-color: #6c5ce7;
+}
+
+.game-card--bluffing-number {
+  border-left-color: #f2b84b;
+}
+
 .game-card-preview {
   cursor: default;
 }
 
 .game-card-preview:hover {
   border-color: var(--surface-2);
+}
+
+.game-card-preview.game-card--stop-at-7:hover {
+  border-left-color: #00d2a0;
+}
+
+.game-card-preview.game-card--nunchi:hover {
+  border-left-color: #ff8a5c;
+}
+
+.game-card-preview.game-card--truth-or-lie:hover {
+  border-left-color: #6c5ce7;
+}
+
+.game-card-preview.game-card--bluffing-number:hover {
+  border-left-color: #f2b84b;
 }
 
 .game-card-emoji {
