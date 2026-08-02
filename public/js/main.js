@@ -2,6 +2,7 @@ const socket = io();
 
 const landingScreen = document.getElementById('landing-screen');
 const waitingScreen = document.getElementById('waiting-screen');
+const gameSelectMirrorScreen = document.getElementById('game-select-mirror-screen');
 const gameScreen = document.getElementById('game-screen');
 const nunchiScreen = document.getElementById('nunchi-screen');
 
@@ -13,6 +14,10 @@ const joinError = document.getElementById('join-error');
 
 const waitingNickname = document.getElementById('waiting-nickname');
 const waitingMessage = document.getElementById('waiting-message');
+
+const mirrorParticipantList = document.getElementById('mirror-participant-list');
+const mirrorParticipantCount = document.getElementById('mirror-participant-count');
+const mirrorEmptyParticipants = document.getElementById('mirror-empty-participants');
 
 const gameReady = document.getElementById('game-ready');
 const gameReadyMessage = document.getElementById('game-ready-message');
@@ -65,8 +70,17 @@ function formatSeconds(ms) {
 function showTopScreen(screen) {
   landingScreen.classList.toggle('hidden', screen !== 'landing');
   waitingScreen.classList.toggle('hidden', screen !== 'waiting');
+  gameSelectMirrorScreen.classList.toggle('hidden', screen !== 'game-select');
   gameScreen.classList.toggle('hidden', screen !== 'stop-at-7');
   nunchiScreen.classList.toggle('hidden', screen !== 'nunchi');
+}
+
+function renderMirrorParticipants(participants) {
+  mirrorParticipantCount.textContent = `${participants.length}명`;
+  mirrorEmptyParticipants.classList.toggle('hidden', participants.length > 0);
+  mirrorParticipantList.innerHTML = participants
+    .map((p, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(p.nickname)}</li>`)
+    .join('');
 }
 
 function showGameSubView(view) {
@@ -151,18 +165,26 @@ joinRoomBtn.addEventListener('click', () => {
       return;
     }
 
+    if (res.status === 'game-select') {
+      showTopScreen('game-select');
+      renderMirrorParticipants(res.participants || []);
+      return;
+    }
+
     showTopScreen('waiting');
     waitingNickname.textContent = `${nickname}님`;
-    waitingMessage.textContent =
-      res.status === 'game-select' ? '호스트가 게임을 준비 중입니다...' : '호스트가 게임을 시작하길 기다리는 중...';
+    waitingMessage.textContent = '호스트가 게임을 시작하길 기다리는 중...';
   });
+});
+
+socket.on('room:update', ({ participants }) => {
+  renderMirrorParticipants(participants);
 });
 
 socket.on('game:select-screen', () => {
   if (!joinedCode) return;
   activeGame = null;
-  showTopScreen('waiting');
-  waitingMessage.textContent = '호스트가 게임을 준비 중입니다...';
+  showTopScreen('game-select');
 });
 
 socket.on('game:launched', ({ game }) => {

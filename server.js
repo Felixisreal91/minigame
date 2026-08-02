@@ -94,7 +94,12 @@ io.on('connection', (socket) => {
     socket.data.nickname = trimmed;
     room.participants.push({ id: socket.id, nickname: trimmed });
     socket.join(code);
-    ack?.({ success: true, status: room.status, currentGame: room.currentGame });
+    ack?.({
+      success: true,
+      status: room.status,
+      currentGame: room.currentGame,
+      participants: room.participants,
+    });
     broadcastRoomUpdate(code);
   });
 

@@ -223,6 +223,14 @@ button.ghost {
   border-color: var(--primary);
 }
 
+.game-card-preview {
+  cursor: default;
+}
+
+.game-card-preview:hover {
+  border-color: var(--surface-2);
+}
+
 .game-card-emoji {
   font-size: 2rem;
 }
