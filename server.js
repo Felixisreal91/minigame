@@ -1,6 +1,42 @@
+require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const { Server } = require('socket.io');
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase =
+  process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+    ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+    : null;
+
+if (!supabase) {
+  console.warn('SUPABASE_URL/SUPABASE_ANON_KEY가 없어 게임 결과가 저장되지 않습니다.');
+}
+
+// 활성 방의 게임 결과를 Supabase에 부가 기록 (fire-and-forget, 실패해도 실시간 진행에 영향 없음)
+function saveGameResult(roomCode, game, round, payload) {
+  if (!supabase) return;
+  supabase
+    .from('game_results')
+    .insert({ room_code: roomCode, game, round, payload })
+    .then(({ error }) => {
+      if (error) console.error('Supabase insert 실패:', error.message);
+    })
+    .catch((err) => console.error('Supabase insert 네트워크 오류:', err.message));
+}
+
+// 호스트가 방을 나가면 그 방의 결과를 모두 삭제 (활성 방 동안만 유지)
+function deleteGameResults(roomCode) {
+  if (!supabase) return;
+  supabase
+    .from('game_results')
+    .delete()
+    .eq('room_code', roomCode)
+    .then(({ error }) => {
+      if (error) console.error('Supabase delete 실패:', error.message);
+    })
+    .catch((err) => console.error('Supabase delete 네트워크 오류:', err.message));
+}
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
@@ -89,6 +125,7 @@ function maybeEndNunchiRound(code, room) {
   if (typeof expectedCount !== 'number' || expectedCount <= 0 || results.length < expectedCount) return;
   const ranked = results.map((r, i) => ({ nickname: r.nickname, order: i + 1 }));
   io.to(code).emit('game:round-end', { results: ranked });
+  saveGameResult(code, 'nunchi', room.gameState.round, { results: ranked });
 }
 
 function maybeCompleteWriting(code, room) {
@@ -112,7 +149,7 @@ function maybeRevealRoundResult(code, room) {
   const incorrectGuessers = gs.guesses.filter((g) => g.guess !== authorEntry.isTrue).map((g) => g.nickname);
 
   gs.phase = 'result';
-  io.to(code).emit('game:round-result', {
+  const payload = {
     sentence: authorEntry.sentence,
     isTrue: authorEntry.isTrue,
     authorNickname: authorEntry.nickname,
@@ -121,7 +158,9 @@ function maybeRevealRoundResult(code, room) {
     roundNumber: gs.currentIndex + 1,
     totalRounds: gs.order.length,
     isLastRound: gs.currentIndex >= gs.order.length - 1,
-  });
+  };
+  io.to(code).emit('game:round-result', payload);
+  saveGameResult(code, 'truth-or-lie', payload.roundNumber, payload);
 }
 
 function buildBluffingSummary(room, gs) {
@@ -169,6 +208,7 @@ function resolveBluffingRound(code, room) {
     Object.assign(payload, buildBluffingSummary(room, gs));
   }
   io.to(code).emit('game:round-result', payload);
+  saveGameResult(code, 'bluffing-number', gs.round, payload);
 }
 
 function maybeResolveBluffingRound(code, room) {
@@ -542,6 +582,9 @@ io.on('connection', (socket) => {
     } else if (room.currentGame === 'bluffing-number') {
       room.gameState = createInitialGameState('bluffing-number');
     } else {
+      if (room.currentGame === 'stop-at-7' && room.gameState.results.length > 0) {
+        saveGameResult(code, 'stop-at-7', room.gameState.round, { results: sortedResults(room.gameState) });
+      }
       room.gameState.round += 1;
       room.gameState.results = [];
     }
@@ -554,6 +597,9 @@ io.on('connection', (socket) => {
     if (!room || room.hostSocketId !== socket.id) {
       ack?.({ success: false, error: '이동할 수 없습니다.' });
       return;
+    }
+    if (room.currentGame === 'stop-at-7' && room.gameState?.results?.length > 0) {
+      saveGameResult(code, 'stop-at-7', room.gameState.round, { results: sortedResults(room.gameState) });
     }
     room.status = 'game-select';
     room.currentGame = null;
@@ -569,6 +615,7 @@ io.on('connection', (socket) => {
 
     if (role === 'host' && room.hostSocketId === socket.id) {
       rooms.delete(code);
+      deleteGameResults(code);
       return;
     }
 
@@ -621,14 +668,16 @@ io.on('connection', (socket) => {
           }
           if (gs.alive.length <= 1 && !gs.gameOver) {
             gs.gameOver = true;
-            io.to(code).emit('game:round-result', {
+            const payload = {
               round: gs.round,
               picks: [],
               eliminated: [],
               remainingCount: gs.alive.length,
               isGameOver: true,
               ...buildBluffingSummary(room, gs),
-            });
+            };
+            io.to(code).emit('game:round-result', payload);
+            saveGameResult(code, 'bluffing-number', gs.round, payload);
           } else {
             maybeResolveBluffingRound(code, room);
           }
