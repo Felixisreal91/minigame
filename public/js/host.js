@@ -25,6 +25,7 @@ const gameCardNunchi = document.getElementById('game-card-nunchi');
 const gameCardTruthOrLie = document.getElementById('game-card-truth-or-lie');
 const hostCodeBadge = document.getElementById('host-code-badge');
 const hostQrPopover = document.getElementById('host-qr-popover');
+const hostQrPopoverCode = document.getElementById('host-qr-popover-code');
 const hostQrCanvas = document.getElementById('host-qr-canvas');
 const hostStopBtn = document.getElementById('host-stop-btn');
 
@@ -82,7 +83,7 @@ if (!code) {
 }
 
 roomCodeEl.textContent = code;
-hostCodeBadge.textContent = code;
+hostQrPopoverCode.textContent = code;
 
 hostCodeBadge.addEventListener('click', () => {
   hostQrPopover.classList.toggle('hidden');
@@ -95,6 +96,7 @@ function showTopScreen(screen) {
   gameHostScreen.classList.toggle('hidden', screen !== 'game-host');
   nunchiHostScreen.classList.toggle('hidden', screen !== 'nunchi-host');
   tolHostScreen.classList.toggle('hidden', screen !== 'tol-host');
+  hostStopBtn.classList.toggle('hidden', screen === 'game-select');
 }
 
 function showTolHostSubView(view) {

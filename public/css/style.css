@@ -328,6 +328,15 @@ button.ghost {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
+.qr-popover-code {
+  color: #111;
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
 .spinner {
   width: 36px;
   height: 36px;
