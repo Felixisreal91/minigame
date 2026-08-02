@@ -68,6 +68,11 @@
           <div class="game-card-title">진실 혹은 거짓</div>
           <div class="game-card-desc">문장을 쓰고, 서로 진실인지 거짓인지 맞혀보세요</div>
         </button>
+        <button class="game-card" id="game-card-bluffing-number">
+          <div class="game-card-emoji">🎲</div>
+          <div class="game-card-title">블러핑 넘버</div>
+          <div class="game-card-desc">겹치거나 가장 낮은 숫자를 고르면 탈락!</div>
+        </button>
       </div>
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -186,6 +191,64 @@
         <button id="tol-host-next-round-btn" class="primary">다음 라운드로</button>
         <button id="tol-host-restart-btn" class="primary hidden">다시 시작</button>
         <button id="tol-host-back-btn" class="ghost">게임 목록으로</button>
+      </div>
+    </section>
+
+    <!-- 게임: 블러핑 넘버 -->
+    <section id="bluffing-host-screen" class="hidden">
+      <header class="hero">
+        <h1>블러핑 넘버</h1>
+        <p>겹치거나 가장 낮은 숫자를 고르면 탈락해요</p>
+      </header>
+
+      <div id="bluffing-host-range" class="center-block">
+        <p class="desc">숫자 범위를 선택해주세요</p>
+        <div class="bluffing-range-grid">
+          <button class="ghost bluffing-range-btn" data-max="5">1~5</button>
+          <button class="ghost bluffing-range-btn" data-max="10">1~10</button>
+          <button class="ghost bluffing-range-btn" data-max="15">1~15</button>
+          <button class="ghost bluffing-range-btn" data-max="20">1~20</button>
+          <button class="ghost bluffing-range-btn" data-max="25">1~25</button>
+        </div>
+      </div>
+
+      <div id="bluffing-host-ready" class="center-block hidden">
+        <p class="desc" id="bluffing-host-ready-message"></p>
+        <button id="bluffing-host-start-btn" class="primary">시작</button>
+      </div>
+
+      <div id="bluffing-host-picking" class="center-block hidden">
+        <div class="spinner"></div>
+        <p class="desc" id="bluffing-host-pick-progress">0/0명 선택</p>
+      </div>
+
+      <div id="bluffing-host-result" class="hidden">
+        <p class="desc" id="bluffing-host-round-indicator" style="text-align:center;"></p>
+        <div class="card">
+          <h2>이번 라운드 선택</h2>
+          <ul class="participant-list" id="bluffing-host-picks-list"></ul>
+        </div>
+        <div class="card">
+          <h2>이번 라운드 탈락 <span id="bluffing-host-eliminated-count"></span></h2>
+          <ul class="participant-list" id="bluffing-host-eliminated-list"></ul>
+        </div>
+
+        <div id="bluffing-host-next" class="hidden">
+          <button id="bluffing-host-next-round-btn" class="primary">다음 라운드로</button>
+        </div>
+
+        <div id="bluffing-host-final" class="hidden">
+          <div class="card">
+            <h2>최종 생존자</h2>
+            <ul class="participant-list" id="bluffing-host-survivors-list"></ul>
+          </div>
+          <div class="card">
+            <h2>전체 탈락자 명단</h2>
+            <ul class="participant-list" id="bluffing-host-final-eliminated-list"></ul>
+          </div>
+          <button id="bluffing-host-restart-btn" class="primary">다시하기</button>
+          <button id="bluffing-host-back-btn" class="ghost">게임 목록으로</button>
+        </div>
       </div>
     </section>
   </div>

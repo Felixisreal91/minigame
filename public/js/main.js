@@ -72,8 +72,28 @@ const tolCorrectList = document.getElementById('tol-correct-list');
 const tolIncorrectCount = document.getElementById('tol-incorrect-count');
 const tolIncorrectList = document.getElementById('tol-incorrect-list');
 
+const bluffingScreen = document.getElementById('bluffing-screen');
+const bluffingReady = document.getElementById('bluffing-ready');
+const bluffingReadyMessage = document.getElementById('bluffing-ready-message');
+const bluffingPicking = document.getElementById('bluffing-picking');
+const bluffingPicker = document.getElementById('bluffing-picker');
+const bluffingPickerInstruction = document.getElementById('bluffing-picker-instruction');
+const bluffingNumberGrid = document.getElementById('bluffing-number-grid');
+const bluffingPickedWait = document.getElementById('bluffing-picked-wait');
+const bluffingPickedStatus = document.getElementById('bluffing-picked-status');
+const bluffingSpectateWait = document.getElementById('bluffing-spectate-wait');
+const bluffingResult = document.getElementById('bluffing-result');
+const bluffingRoundIndicator = document.getElementById('bluffing-round-indicator');
+const bluffingPicksList = document.getElementById('bluffing-picks-list');
+const bluffingEliminatedCount = document.getElementById('bluffing-eliminated-count');
+const bluffingEliminatedList = document.getElementById('bluffing-eliminated-list');
+const bluffingContinue = document.getElementById('bluffing-continue');
+const bluffingFinal = document.getElementById('bluffing-final');
+const bluffingSurvivorsList = document.getElementById('bluffing-survivors-list');
+const bluffingFinalEliminatedList = document.getElementById('bluffing-final-eliminated-list');
+
 let joinedCode = null;
-let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie'
+let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number'
 let currentRound = null;
 let countdownTimer = null;
 let rafId = null;
@@ -82,6 +102,7 @@ let myNunchiOrder = null;
 let tolIsTrueSelected = null;
 let tolCurrentRound = null;
 let tolIsAuthorThisRound = false;
+let bluffingCurrentRound = null;
 
 // QR 스캔으로 접속한 경우 코드 자동 채움
 const params = new URLSearchParams(location.search);
@@ -108,6 +129,64 @@ function showTopScreen(screen) {
   gameScreen.classList.toggle('hidden', screen !== 'stop-at-7');
   nunchiScreen.classList.toggle('hidden', screen !== 'nunchi');
   tolScreen.classList.toggle('hidden', screen !== 'truth-or-lie');
+  bluffingScreen.classList.toggle('hidden', screen !== 'bluffing-number');
+}
+
+function showBluffingSubView(view) {
+  bluffingReady.classList.toggle('hidden', view !== 'ready');
+  bluffingPicking.classList.toggle('hidden', view !== 'picking');
+  bluffingResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderBluffingNumberGrid(min, max) {
+  bluffingNumberGrid.innerHTML = '';
+  for (let n = min; n <= max; n += 1) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'bluffing-number-btn';
+    btn.textContent = String(n);
+    btn.addEventListener('click', () => submitBluffingPick(n));
+    bluffingNumberGrid.appendChild(btn);
+  }
+}
+
+function submitBluffingPick(number) {
+  Array.from(bluffingNumberGrid.children).forEach((b) => {
+    b.disabled = true;
+  });
+  socket.emit('player:submit-pick', { code: joinedCode, round: bluffingCurrentRound, number }, (res) => {
+    if (res?.success) {
+      bluffingPicker.classList.add('hidden');
+      bluffingPickedWait.classList.remove('hidden');
+      bluffingPickedStatus.textContent = `${number}번을 선택했어요! 기다리는 중...`;
+    } else {
+      Array.from(bluffingNumberGrid.children).forEach((b) => {
+        b.disabled = false;
+      });
+      alert(res?.error || '선택에 실패했습니다.');
+    }
+  });
+}
+
+function renderBluffingRoundReveal(picks, eliminated, round) {
+  bluffingRoundIndicator.textContent = `${round}라운드 결과`;
+  bluffingPicksList.innerHTML = picks
+    .map((p, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(p.nickname)} — ${p.number}</li>`)
+    .join('');
+  bluffingEliminatedCount.textContent = `${eliminated.length}명`;
+  bluffingEliminatedList.innerHTML = eliminated
+    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number}</li>`)
+    .join('');
+}
+
+function renderBluffingFinal(survivors, eliminatedLog) {
+  bluffingSurvivorsList.innerHTML =
+    survivors.length > 0
+      ? survivors.map((n, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(n)}</li>`).join('')
+      : '<li>생존자가 없어요</li>';
+  bluffingFinalEliminatedList.innerHTML = eliminatedLog
+    .map((e) => `<li>${escapeHtml(e.nickname)} — ${e.round}라운드 탈락</li>`)
+    .join('');
 }
 
 function showTolSubView(view) {
@@ -224,6 +303,10 @@ joinRoomBtn.addEventListener('click', () => {
       activeGame = res.currentGame;
       if (activeGame === 'truth-or-lie') {
         showTolSpectatorWaiting('라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!');
+      } else if (activeGame === 'bluffing-number') {
+        showTopScreen('bluffing-number');
+        showBluffingSubView('ready');
+        bluffingReadyMessage.textContent = '라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!';
       } else {
         showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
       }
@@ -259,12 +342,16 @@ socket.on('game:launched', ({ game }) => {
     showTopScreen('truth-or-lie');
     showTolSubView('writing');
     resetTolWriteForm();
+  } else if (game === 'bluffing-number') {
+    showTopScreen('bluffing-number');
+    showBluffingSubView('ready');
+    bluffingReadyMessage.textContent = '호스트가 범위를 정하고 있어요';
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
 });
 
-socket.on('game:round-start', ({ round }) => {
+socket.on('game:round-start', ({ round, min, max, alive }) => {
   if (!joinedCode) return;
   currentRound = round;
   if (activeGame === 'stop-at-7') {
@@ -273,6 +360,18 @@ socket.on('game:round-start', ({ round }) => {
   } else if (activeGame === 'nunchi') {
     showNunchiSubView('countdown');
     runCountdown(nunchiCountdownNumber, startNunchiPress);
+  } else if (activeGame === 'bluffing-number') {
+    bluffingCurrentRound = round;
+    showTopScreen('bluffing-number');
+    showBluffingSubView('picking');
+    const amIAlive = alive.includes(socket.id);
+    bluffingSpectateWait.classList.toggle('hidden', amIAlive);
+    bluffingPicker.classList.toggle('hidden', !amIAlive);
+    bluffingPickedWait.classList.add('hidden');
+    if (amIAlive) {
+      bluffingPickerInstruction.textContent = `${min}~${max} 사이의 숫자를 골라주세요`;
+      renderBluffingNumberGrid(min, max);
+    }
   }
 });
 
@@ -285,6 +384,10 @@ socket.on('game:round-reset', () => {
     showTopScreen('truth-or-lie');
     showTolSubView('writing');
     resetTolWriteForm();
+  } else if (activeGame === 'bluffing-number') {
+    showTopScreen('bluffing-number');
+    showBluffingSubView('ready');
+    bluffingReadyMessage.textContent = '호스트가 범위를 정하고 있어요';
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -505,4 +608,28 @@ socket.on('game:round-result', ({ sentence, isTrue, authorNickname, correctGuess
     .join('');
 
   showTolSubView('result');
+});
+
+// ---- 블러핑 넘버 ----
+
+socket.on('game:pick-progress', ({ pickedCount, totalParticipants }) => {
+  if (activeGame !== 'bluffing-number') return;
+  if (!bluffingPickedWait.classList.contains('hidden')) {
+    bluffingPickedStatus.textContent = `선택 완료! (${pickedCount}/${totalParticipants}명 선택)`;
+  }
+});
+
+socket.on('game:round-result', (payload) => {
+  if (activeGame !== 'bluffing-number') return;
+  const { round, picks, eliminated, isGameOver, survivors, eliminatedLog } = payload;
+
+  renderBluffingRoundReveal(picks, eliminated, round);
+  bluffingContinue.classList.toggle('hidden', isGameOver);
+  bluffingFinal.classList.toggle('hidden', !isGameOver);
+  if (isGameOver) {
+    renderBluffingFinal(survivors, eliminatedLog);
+  }
+
+  showTopScreen('bluffing-number');
+  showBluffingSubView('result');
 });

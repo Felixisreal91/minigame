@@ -13,7 +13,7 @@ const httpServer = app.listen(process.env.PORT || 3000, () => {
 const io = new Server(httpServer);
 
 // code -> { hostSocketId, participants: [{id, nickname}], status: 'waiting' | 'game-select' | 'playing',
-//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie',
+//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number',
 //           gameState: null | (게임별로 모양이 다름, createInitialGameState 참고) }
 //   stop-at-7: { round, results: [{id, nickname, elapsedMs, diffMs}] }
 //   nunchi:    { round, results: [{id, nickname}] (배열 순서 = 누른 순서), expectedCount }
@@ -22,6 +22,10 @@ const io = new Server(httpServer);
 //     sentences: [{id, nickname, sentence, isTrue}], expectedCount,
 //     order: [id, ...] (셔플된 작성자 순서), currentIndex,
 //     guesses: [{id, nickname, guess}] (라운드마다 초기화), expectedGuessers,
+//   }
+//   bluffing-number: {
+//     range: null | {min:1, max}, round, alive: [id,...], picks: [{id,nickname,number}] (라운드마다 초기화),
+//     expectedPicks, eliminatedLog: [{nickname, round}] (누적), gameOver,
 //   }
 const rooms = new Map();
 
@@ -50,6 +54,17 @@ function createInitialGameState(game) {
       currentIndex: -1,
       guesses: [],
       expectedGuessers: 0,
+    };
+  }
+  if (game === 'bluffing-number') {
+    return {
+      range: null,
+      round: 0,
+      alive: [],
+      picks: [],
+      expectedPicks: 0,
+      eliminatedLog: [],
+      gameOver: false,
     };
   }
   return { round: 1, results: [] };
@@ -107,6 +122,60 @@ function maybeRevealRoundResult(code, room) {
     totalRounds: gs.order.length,
     isLastRound: gs.currentIndex >= gs.order.length - 1,
   });
+}
+
+function buildBluffingSummary(room, gs) {
+  const survivors = room.participants.filter((p) => gs.alive.includes(p.id)).map((p) => p.nickname);
+  const eliminatedLog = [...gs.eliminatedLog].sort((a, b) => b.round - a.round);
+  return { survivors, eliminatedLog };
+}
+
+function resolveBluffingRound(code, room) {
+  const gs = room.gameState;
+  if (gs.gameOver) return;
+
+  const byNumber = new Map();
+  for (const p of gs.picks) {
+    if (!byNumber.has(p.number)) byNumber.set(p.number, []);
+    byNumber.get(p.number).push(p);
+  }
+  const duplicateGroups = [...byNumber.values()].filter((g) => g.length > 1);
+
+  let eliminatedThisRound;
+  if (duplicateGroups.length > 0) {
+    eliminatedThisRound = duplicateGroups.flat();
+  } else if (gs.picks.length > 0) {
+    const minNumber = Math.min(...gs.picks.map((p) => p.number));
+    eliminatedThisRound = gs.picks.filter((p) => p.number === minNumber);
+  } else {
+    eliminatedThisRound = [];
+  }
+
+  const eliminatedIds = new Set(eliminatedThisRound.map((p) => p.id));
+  gs.alive = gs.alive.filter((id) => !eliminatedIds.has(id));
+  eliminatedThisRound.forEach((p) => gs.eliminatedLog.push({ nickname: p.nickname, round: gs.round }));
+
+  const isGameOver = gs.alive.length <= 1;
+  if (isGameOver) gs.gameOver = true;
+
+  const payload = {
+    round: gs.round,
+    picks: [...gs.picks].sort((a, b) => a.number - b.number).map((p) => ({ nickname: p.nickname, number: p.number })),
+    eliminated: eliminatedThisRound.map((p) => ({ nickname: p.nickname, number: p.number })),
+    remainingCount: gs.alive.length,
+    isGameOver,
+  };
+  if (isGameOver) {
+    Object.assign(payload, buildBluffingSummary(room, gs));
+  }
+  io.to(code).emit('game:round-result', payload);
+}
+
+function maybeResolveBluffingRound(code, room) {
+  const gs = room.gameState;
+  if (gs.gameOver) return;
+  if (gs.picks.length < gs.expectedPicks) return;
+  resolveBluffingRound(code, room);
 }
 
 io.on('connection', (socket) => {
@@ -195,12 +264,48 @@ io.on('connection', (socket) => {
     ack?.({ success: true });
   });
 
+  socket.on('host:select-range', ({ code, max } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.hostSocketId !== socket.id || room.currentGame !== 'bluffing-number' || !room.gameState) {
+      ack?.({ success: false, error: '범위를 선택할 수 없습니다.' });
+      return;
+    }
+    if (![5, 10, 15, 20, 25].includes(max)) {
+      ack?.({ success: false, error: '올바르지 않은 범위입니다.' });
+      return;
+    }
+    room.gameState.range = { min: 1, max };
+    ack?.({ success: true });
+  });
+
   socket.on('host:round-start', ({ code } = {}, ack) => {
     const room = rooms.get(code);
     if (!room || room.hostSocketId !== socket.id || !room.gameState) {
       ack?.({ success: false, error: '라운드를 시작할 수 없습니다.' });
       return;
     }
+
+    if (room.currentGame === 'bluffing-number') {
+      const gs = room.gameState;
+      if (!gs.range) {
+        ack?.({ success: false, error: '먼저 숫자 범위를 선택해주세요.' });
+        return;
+      }
+      if (gs.round === 0) {
+        gs.alive = room.participants.map((p) => p.id);
+      }
+      if (gs.alive.length <= 1) {
+        ack?.({ success: false, error: '더 이상 진행할 수 없습니다.' });
+        return;
+      }
+      gs.round += 1;
+      gs.picks = [];
+      gs.expectedPicks = gs.alive.length;
+      io.to(code).emit('game:round-start', { round: gs.round, min: gs.range.min, max: gs.range.max, alive: gs.alive });
+      ack?.({ success: true });
+      return;
+    }
+
     room.gameState.expectedCount = room.participants.length;
     io.to(code).emit('game:round-start', { round: room.gameState.round });
     ack?.({ success: true });
@@ -264,6 +369,47 @@ io.on('connection', (socket) => {
     });
 
     maybeEndNunchiRound(code, room);
+  });
+
+  socket.on('player:submit-pick', ({ code, round, number } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.status !== 'playing' || room.currentGame !== 'bluffing-number' || !room.gameState) {
+      ack?.({ success: false, error: '진행 중인 라운드가 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    if (!gs.range || round !== gs.round) {
+      ack?.({ success: false, error: '이미 종료된 라운드입니다.' });
+      return;
+    }
+    if (!gs.alive.includes(socket.id)) {
+      ack?.({ success: false, error: '이미 탈락했습니다.' });
+      return;
+    }
+    if (gs.picks.some((p) => p.id === socket.id)) {
+      ack?.({ success: false, error: '이미 선택했습니다.' });
+      return;
+    }
+    if (
+      typeof number !== 'number' ||
+      !Number.isInteger(number) ||
+      number < gs.range.min ||
+      number > gs.range.max
+    ) {
+      ack?.({ success: false, error: '올바르지 않은 숫자입니다.' });
+      return;
+    }
+
+    const nickname = socket.data.nickname || '참가자';
+    gs.picks.push({ id: socket.id, nickname, number });
+    ack?.({ success: true });
+
+    io.to(code).emit('game:pick-progress', {
+      pickedCount: gs.picks.length,
+      totalParticipants: gs.expectedPicks,
+    });
+
+    maybeResolveBluffingRound(code, room);
   });
 
   socket.on('player:submit-sentence', ({ code, sentence, isTrue } = {}, ack) => {
@@ -393,6 +539,8 @@ io.on('connection', (socket) => {
     if (room.currentGame === 'truth-or-lie') {
       room.gameState = createInitialGameState('truth-or-lie');
       room.gameState.expectedCount = room.participants.length;
+    } else if (room.currentGame === 'bluffing-number') {
+      room.gameState = createInitialGameState('bluffing-number');
     } else {
       room.gameState.round += 1;
       room.gameState.results = [];
@@ -461,6 +609,29 @@ io.on('connection', (socket) => {
             gs.expectedGuessers = Math.max(0, gs.expectedGuessers - 1);
           }
           maybeRevealRoundResult(code, room);
+        }
+      } else if (room.currentGame === 'bluffing-number' && room.status === 'playing') {
+        const gs = room.gameState;
+        const wasAlive = gs.alive.includes(socket.id);
+        if (wasAlive) {
+          const hadPicked = gs.picks.some((p) => p.id === socket.id);
+          gs.alive = gs.alive.filter((id) => id !== socket.id);
+          if (!hadPicked) {
+            gs.expectedPicks = Math.max(0, gs.expectedPicks - 1);
+          }
+          if (gs.alive.length <= 1 && !gs.gameOver) {
+            gs.gameOver = true;
+            io.to(code).emit('game:round-result', {
+              round: gs.round,
+              picks: [],
+              eliminated: [],
+              remainingCount: gs.alive.length,
+              isGameOver: true,
+              ...buildBluffingSummary(room, gs),
+            });
+          } else {
+            maybeResolveBluffingRound(code, room);
+          }
         }
       }
     }

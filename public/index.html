@@ -74,6 +74,11 @@
           <div class="game-card-title">진실 혹은 거짓</div>
           <div class="game-card-desc">문장을 쓰고, 서로 진실인지 거짓인지 맞혀보세요</div>
         </div>
+        <div class="game-card game-card-preview">
+          <div class="game-card-emoji">🎲</div>
+          <div class="game-card-title">블러핑 넘버</div>
+          <div class="game-card-desc">겹치거나 가장 낮은 숫자를 고르면 탈락!</div>
+        </div>
       </div>
     </section>
 
@@ -207,6 +212,60 @@
           <ul class="participant-list" id="tol-incorrect-list"></ul>
         </div>
         <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
+      </div>
+    </section>
+
+    <!-- 게임 화면: 블러핑 넘버 -->
+    <section id="bluffing-screen" class="hidden">
+      <header class="hero">
+        <h1>블러핑 넘버</h1>
+        <p>겹치거나 가장 낮은 숫자를 고르면 탈락해요</p>
+      </header>
+
+      <div id="bluffing-ready" class="center-block">
+        <p id="bluffing-ready-message" class="desc">호스트가 범위를 정하고 있어요</p>
+      </div>
+
+      <div id="bluffing-picking" class="hidden">
+        <div id="bluffing-picker">
+          <p class="desc" id="bluffing-picker-instruction" style="text-align:center; margin-bottom: 12px;"></p>
+          <div class="bluffing-number-grid" id="bluffing-number-grid"></div>
+        </div>
+        <div id="bluffing-picked-wait" class="center-block hidden">
+          <div class="spinner"></div>
+          <p id="bluffing-picked-status" class="desc"></p>
+        </div>
+        <div id="bluffing-spectate-wait" class="center-block hidden">
+          <div class="spinner"></div>
+          <p class="desc">이미 탈락했어요. 다른 사람들의 선택을 지켜보는 중...</p>
+        </div>
+      </div>
+
+      <div id="bluffing-result" class="hidden">
+        <p class="desc" id="bluffing-round-indicator" style="text-align:center;"></p>
+        <div class="card">
+          <h2>이번 라운드 선택</h2>
+          <ul class="participant-list" id="bluffing-picks-list"></ul>
+        </div>
+        <div class="card">
+          <h2>이번 라운드 탈락 <span id="bluffing-eliminated-count"></span></h2>
+          <ul class="participant-list" id="bluffing-eliminated-list"></ul>
+        </div>
+
+        <div id="bluffing-continue" class="hidden">
+          <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
+        </div>
+
+        <div id="bluffing-final" class="hidden">
+          <div class="card">
+            <h2>최종 생존자</h2>
+            <ul class="participant-list" id="bluffing-survivors-list"></ul>
+          </div>
+          <div class="card">
+            <h2>전체 탈락자 명단</h2>
+            <ul class="participant-list" id="bluffing-final-eliminated-list"></ul>
+          </div>
+        </div>
       </div>
     </section>
   </div>

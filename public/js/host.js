@@ -23,6 +23,7 @@ const gameSelectEmptyParticipantsEl = document.getElementById('game-select-empty
 const gameCardStopAt7 = document.getElementById('game-card-stop-at-7');
 const gameCardNunchi = document.getElementById('game-card-nunchi');
 const gameCardTruthOrLie = document.getElementById('game-card-truth-or-lie');
+const gameCardBluffingNumber = document.getElementById('game-card-bluffing-number');
 const hostCodeBadge = document.getElementById('host-code-badge');
 const hostQrPopover = document.getElementById('host-qr-popover');
 const hostQrPopoverCode = document.getElementById('host-qr-popover-code');
@@ -72,8 +73,28 @@ const tolHostNextRoundBtn = document.getElementById('tol-host-next-round-btn');
 const tolHostRestartBtn = document.getElementById('tol-host-restart-btn');
 const tolHostBackBtn = document.getElementById('tol-host-back-btn');
 
+const bluffingHostScreen = document.getElementById('bluffing-host-screen');
+const bluffingHostRange = document.getElementById('bluffing-host-range');
+const bluffingHostReady = document.getElementById('bluffing-host-ready');
+const bluffingHostReadyMessage = document.getElementById('bluffing-host-ready-message');
+const bluffingHostStartBtn = document.getElementById('bluffing-host-start-btn');
+const bluffingHostPicking = document.getElementById('bluffing-host-picking');
+const bluffingHostPickProgress = document.getElementById('bluffing-host-pick-progress');
+const bluffingHostResult = document.getElementById('bluffing-host-result');
+const bluffingHostRoundIndicator = document.getElementById('bluffing-host-round-indicator');
+const bluffingHostPicksList = document.getElementById('bluffing-host-picks-list');
+const bluffingHostEliminatedCount = document.getElementById('bluffing-host-eliminated-count');
+const bluffingHostEliminatedList = document.getElementById('bluffing-host-eliminated-list');
+const bluffingHostNext = document.getElementById('bluffing-host-next');
+const bluffingHostNextRoundBtn = document.getElementById('bluffing-host-next-round-btn');
+const bluffingHostFinal = document.getElementById('bluffing-host-final');
+const bluffingHostSurvivorsList = document.getElementById('bluffing-host-survivors-list');
+const bluffingHostFinalEliminatedList = document.getElementById('bluffing-host-final-eliminated-list');
+const bluffingHostRestartBtn = document.getElementById('bluffing-host-restart-btn');
+const bluffingHostBackBtn = document.getElementById('bluffing-host-back-btn');
+
 let participantCount = 0;
-let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie'
+let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number'
 let countdownTimer = null;
 let currentTopScreen = null;
 
@@ -96,7 +117,40 @@ function showTopScreen(screen) {
   gameHostScreen.classList.toggle('hidden', screen !== 'game-host');
   nunchiHostScreen.classList.toggle('hidden', screen !== 'nunchi-host');
   tolHostScreen.classList.toggle('hidden', screen !== 'tol-host');
+  bluffingHostScreen.classList.toggle('hidden', screen !== 'bluffing-host');
   hostStopBtn.classList.toggle('hidden', screen === 'game-select' || screen === 'manage');
+}
+
+function showBluffingHostSubView(view) {
+  bluffingHostRange.classList.toggle('hidden', view !== 'range');
+  bluffingHostReady.classList.toggle('hidden', view !== 'ready');
+  bluffingHostPicking.classList.toggle('hidden', view !== 'picking');
+  bluffingHostResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderBluffingHostPickProgress(pickedCount, totalParticipants) {
+  bluffingHostPickProgress.textContent = `${pickedCount}/${totalParticipants}명 선택`;
+}
+
+function renderBluffingHostResult(round, picks, eliminated) {
+  bluffingHostRoundIndicator.textContent = `${round}라운드 결과`;
+  bluffingHostPicksList.innerHTML = picks
+    .map((p, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(p.nickname)} — ${p.number}</li>`)
+    .join('');
+  bluffingHostEliminatedCount.textContent = `${eliminated.length}명`;
+  bluffingHostEliminatedList.innerHTML = eliminated
+    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number}</li>`)
+    .join('');
+}
+
+function renderBluffingHostFinal(survivors, eliminatedLog) {
+  bluffingHostSurvivorsList.innerHTML =
+    survivors.length > 0
+      ? survivors.map((n, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(n)}</li>`).join('')
+      : '<li>생존자가 없어요</li>';
+  bluffingHostFinalEliminatedList.innerHTML = eliminatedLog
+    .map((e) => `<li>${escapeHtml(e.nickname)} — ${e.round}라운드 탈락</li>`)
+    .join('');
 }
 
 function showTolHostSubView(view) {
@@ -255,6 +309,19 @@ socket.emit('host:attach', { code }, (res) => {
         renderTolHostGuessProgress(gs.guesses.length, gs.expectedGuessers);
         showTolHostSubView('reveal');
       }
+    } else if (res.currentGame === 'bluffing-number') {
+      showTopScreen('bluffing-host');
+      const gs = res.gameState;
+      if (!gs.range) {
+        showBluffingHostSubView('range');
+      } else if (gs.round === 0) {
+        showBluffingHostSubView('ready');
+        bluffingHostReadyMessage.textContent = `${gs.range.min}~${gs.range.max} 사이의 숫자를 고르는 게임이에요`;
+      } else {
+        // 라운드 도중 호스트가 새로고침한 경우: 진행 상황만 복원
+        showBluffingHostSubView('picking');
+        renderBluffingHostPickProgress(gs.picks.length, gs.expectedPicks);
+      }
     }
   }
 });
@@ -323,6 +390,40 @@ gameCardTruthOrLie.addEventListener('click', () => {
   });
 });
 
+gameCardBluffingNumber.addEventListener('click', () => {
+  gameCardBluffingNumber.disabled = true;
+  socket.emit('host:launch-game', { code, game: 'bluffing-number' }, (res) => {
+    gameCardBluffingNumber.disabled = false;
+    if (res?.success) {
+      activeGame = 'bluffing-number';
+      showTopScreen('bluffing-host');
+      showBluffingHostSubView('range');
+    } else {
+      alert(res?.error || '게임을 시작할 수 없습니다.');
+    }
+  });
+});
+
+document.querySelectorAll('.bluffing-range-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const max = Number(btn.dataset.max);
+    document.querySelectorAll('.bluffing-range-btn').forEach((b) => {
+      b.disabled = true;
+    });
+    socket.emit('host:select-range', { code, max }, (res) => {
+      document.querySelectorAll('.bluffing-range-btn').forEach((b) => {
+        b.disabled = false;
+      });
+      if (res?.success) {
+        showBluffingHostSubView('ready');
+        bluffingHostReadyMessage.textContent = `1~${max} 사이의 숫자를 고르는 게임이에요`;
+      } else {
+        alert(res?.error || '범위를 선택할 수 없습니다.');
+      }
+    });
+  });
+});
+
 gameHostStartBtn.addEventListener('click', () => {
   gameHostStartBtn.disabled = true;
   socket.emit('host:round-start', { code }, (res) => {
@@ -342,6 +443,19 @@ nunchiHostStartBtn.addEventListener('click', () => {
     }
   });
 });
+
+function requestBluffingRoundStart(triggerBtn) {
+  triggerBtn.disabled = true;
+  socket.emit('host:round-start', { code }, (res) => {
+    triggerBtn.disabled = false;
+    if (!res?.success) {
+      alert(res?.error || '라운드를 시작할 수 없습니다.');
+    }
+  });
+}
+
+bluffingHostStartBtn.addEventListener('click', () => requestBluffingRoundStart(bluffingHostStartBtn));
+bluffingHostNextRoundBtn.addEventListener('click', () => requestBluffingRoundStart(bluffingHostNextRoundBtn));
 
 function requestTolNextRound() {
   socket.emit('host:next-round', { code }, (res) => {
@@ -367,6 +481,9 @@ socket.on('game:round-start', () => {
       showNunchiSubView('progress');
       renderNunchiProgress(0, participantCount);
     });
+  } else if (activeGame === 'bluffing-number') {
+    showBluffingHostSubView('picking');
+    renderBluffingHostPickProgress(0, participantCount);
   }
 });
 
@@ -382,6 +499,8 @@ socket.on('game:round-reset', () => {
   } else if (activeGame === 'truth-or-lie') {
     showTolHostSubView('writing');
     renderTolHostWritingProgress(0, participantCount);
+  } else if (activeGame === 'bluffing-number') {
+    showBluffingHostSubView('range');
   }
 });
 
@@ -425,6 +544,25 @@ socket.on('game:round-result', (payload) => {
   if (activeGame !== 'truth-or-lie') return;
   renderTolHostResult(payload);
   showTolHostSubView('result');
+});
+
+socket.on('game:pick-progress', ({ pickedCount, totalParticipants }) => {
+  if (activeGame !== 'bluffing-number') return;
+  renderBluffingHostPickProgress(pickedCount, totalParticipants);
+});
+
+socket.on('game:round-result', (payload) => {
+  if (activeGame !== 'bluffing-number') return;
+  const { round, picks, eliminated, isGameOver, survivors, eliminatedLog } = payload;
+
+  renderBluffingHostResult(round, picks, eliminated);
+  bluffingHostNext.classList.toggle('hidden', isGameOver);
+  bluffingHostFinal.classList.toggle('hidden', !isGameOver);
+  if (isGameOver) {
+    renderBluffingHostFinal(survivors, eliminatedLog);
+  }
+
+  showBluffingHostSubView('result');
 });
 
 gameHostResetBtn.addEventListener('click', () => {
@@ -481,8 +619,26 @@ tolHostBackBtn.addEventListener('click', () => {
   });
 });
 
+bluffingHostRestartBtn.addEventListener('click', () => {
+  socket.emit('host:reset-round', { code }, (res) => {
+    if (!res?.success) {
+      alert(res?.error || '다시 시작할 수 없습니다.');
+    }
+  });
+});
+
+bluffingHostBackBtn.addEventListener('click', () => {
+  socket.emit('host:back-to-game-select', { code }, (res) => {
+    if (res?.success) {
+      showTopScreen('game-select');
+    } else {
+      alert(res?.error || '이동할 수 없습니다.');
+    }
+  });
+});
+
 hostStopBtn.addEventListener('click', () => {
-  const isMidGame = ['game-host', 'nunchi-host', 'tol-host'].includes(currentTopScreen);
+  const isMidGame = ['game-host', 'nunchi-host', 'tol-host', 'bluffing-host'].includes(currentTopScreen);
   if (isMidGame && !confirm('진행 중인 게임을 중단하고 게임 선택 화면으로 돌아갈까요?')) {
     return;
   }

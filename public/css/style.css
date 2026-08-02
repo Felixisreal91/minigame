@@ -338,6 +338,37 @@ button.ghost {
   margin-bottom: 8px;
 }
 
+.bluffing-range-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.bluffing-range-btn {
+  flex: 1 1 auto;
+  min-width: 70px;
+}
+
+.bluffing-number-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.bluffing-number-btn {
+  aspect-ratio: 1;
+  padding: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.bluffing-number-btn:disabled {
+  opacity: 0.35;
+}
+
 .spinner {
   width: 36px;
   height: 36px;
