@@ -120,12 +120,32 @@ function broadcastRoomUpdate(code) {
   io.to(code).emit('room:update', { participants: room.participants });
 }
 
+const NUNCHI_COLLISION_WINDOW_MS = 300;
+
 function maybeEndNunchiRound(code, room) {
   const { expectedCount, results } = room.gameState;
   if (typeof expectedCount !== 'number' || expectedCount <= 0 || results.length < expectedCount) return;
+
+  // results는 서버가 이벤트를 받은 순서(=pressedAt 오름차순)로 이미 쌓여있음
   const ranked = results.map((r, i) => ({ nickname: r.nickname, order: i + 1 }));
-  io.to(code).emit('game:round-end', { results: ranked });
-  saveGameResult(code, 'nunchi', room.gameState.round, { results: ranked });
+
+  // 전후 0.3초 이내로 연속해서 누른 사람들을 하나의 클러스터로 묶는다
+  const clusters = [[results[0]]];
+  for (let i = 1; i < results.length; i += 1) {
+    if (results[i].pressedAt - results[i - 1].pressedAt <= NUNCHI_COLLISION_WINDOW_MS) {
+      clusters[clusters.length - 1].push(results[i]);
+    } else {
+      clusters.push([results[i]]);
+    }
+  }
+  const collisionClusters = clusters.filter((c) => c.length > 1);
+  const eliminated =
+    collisionClusters.length > 0
+      ? collisionClusters.flat().map((r) => r.nickname)
+      : [results[results.length - 1].nickname];
+
+  io.to(code).emit('game:round-end', { results: ranked, eliminated });
+  saveGameResult(code, 'nunchi', room.gameState.round, { results: ranked, eliminated });
 }
 
 function maybeCompleteWriting(code, room) {
@@ -398,7 +418,7 @@ io.on('connection', (socket) => {
     }
 
     const nickname = socket.data.nickname || '참가자';
-    room.gameState.results.push({ id: socket.id, nickname });
+    room.gameState.results.push({ id: socket.id, nickname, pressedAt: Date.now() });
     const order = room.gameState.results.length;
     const totalExpected = room.gameState.expectedCount;
     ack?.({ success: true, order, totalExpected });

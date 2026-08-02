@@ -247,11 +247,11 @@ function renderNunchiProgress(pressedCount, totalParticipants) {
   nunchiHostProgressText.textContent = `${pressedCount}/${totalParticipants}명 눌렀어요`;
 }
 
-function renderNunchiReveal(results) {
-  const lastOrder = results.length;
+function renderNunchiReveal(results, eliminated) {
+  const eliminatedSet = new Set(eliminated);
   nunchiHostRevealList.innerHTML = results
     .map((r) => {
-      const isLoser = r.order === lastOrder;
+      const isLoser = eliminatedSet.has(r.nickname);
       return `<li class="${isLoser ? 'loser' : ''}"><span class="num">${r.order}</span>${escapeHtml(r.nickname)}${isLoser ? ' — 🫠 졌습니다!' : ''}</li>`;
     })
     .join('');
@@ -512,8 +512,8 @@ socket.on('game:press-update', ({ pressedCount, totalParticipants }) => {
   renderNunchiProgress(pressedCount, totalParticipants);
 });
 
-socket.on('game:round-end', ({ results }) => {
-  renderNunchiReveal(results);
+socket.on('game:round-end', ({ results, eliminated }) => {
+  renderNunchiReveal(results, eliminated);
   showNunchiSubView('reveal');
 });
 

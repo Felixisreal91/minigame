@@ -486,17 +486,17 @@ socket.on('game:press-update', ({ pressedCount, totalParticipants }) => {
     : progress;
 });
 
-socket.on('game:round-end', ({ results }) => {
+socket.on('game:round-end', ({ results, eliminated }) => {
   if (activeGame !== 'nunchi') return;
-  renderNunchiReveal(results);
+  renderNunchiReveal(results, eliminated);
   showNunchiSubView('reveal');
 });
 
-function renderNunchiReveal(results) {
-  const lastOrder = results.length;
+function renderNunchiReveal(results, eliminated) {
+  const eliminatedSet = new Set(eliminated);
   nunchiRevealList.innerHTML = results
     .map((r) => {
-      const isLoser = r.order === lastOrder;
+      const isLoser = eliminatedSet.has(r.nickname);
       return `<li class="${isLoser ? 'loser' : ''}"><span class="num">${r.order}</span>${escapeHtml(r.nickname)}${isLoser ? ' — 🫠 졌습니다!' : ''}</li>`;
     })
     .join('');
