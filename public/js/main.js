@@ -11,6 +11,7 @@ const joinCodeInput = document.getElementById('join-code-input');
 const joinNicknameInput = document.getElementById('join-nickname-input');
 const joinRoomBtn = document.getElementById('join-room-btn');
 const joinError = document.getElementById('join-error');
+const clearCacheBtn = document.getElementById('clear-cache-btn');
 
 const waitingNickname = document.getElementById('waiting-nickname');
 const waitingMessage = document.getElementById('waiting-message');
@@ -262,6 +263,25 @@ function runCountdown(numberEl, onDone) {
     }
   }, 700);
 }
+
+clearCacheBtn.addEventListener('click', async () => {
+  clearCacheBtn.disabled = true;
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+    if (navigator.serviceWorker) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((reg) => reg.unregister()));
+    }
+  } catch (err) {
+    console.error('캐시 삭제 중 오류:', err);
+  }
+  location.href = `${location.pathname}?t=${Date.now()}`;
+});
 
 createRoomBtn.addEventListener('click', () => {
   createRoomBtn.disabled = true;
