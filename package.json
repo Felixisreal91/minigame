@@ -1,0 +1,15 @@
+{
+  "name": "js-minigame",
+  "version": "0.1.0",
+  "private": true,
+  "description": "J's 미니게임 - 아이스브레이킹용 실시간 멀티플레이 미니게임",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.7.5"
+  }
+}

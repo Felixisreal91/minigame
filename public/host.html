@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>J's 미니게임 - 호스트</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="page">
+    <!-- 참가자 관리 화면 -->
+    <section id="manage-screen">
+      <header class="hero">
+        <h1>참가자 대기실</h1>
+        <p>참가자들이 아래 코드나 QR로 입장할 수 있어요</p>
+      </header>
+
+      <div class="card" style="align-items:center; text-align:center;">
+        <div class="room-code" id="room-code">----</div>
+        <div class="qr-wrap">
+          <canvas id="qr-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2>참가자 목록</h2>
+          <span class="participant-count" id="participant-count">0명</span>
+        </div>
+        <ul class="participant-list" id="participant-list"></ul>
+        <p id="empty-participants" class="empty-state">아직 입장한 참가자가 없어요</p>
+      </div>
+
+      <button id="start-play-btn" class="primary">게임플레이</button>
+    </section>
+
+    <!-- 게임 선택 화면 -->
+    <section id="game-select-screen" class="hidden">
+      <header class="hero">
+        <h1>게임 선택</h1>
+        <p id="game-select-count"></p>
+      </header>
+      <div class="game-grid">
+        <button class="game-card" id="game-card-stop-at-7">
+          <div class="game-card-emoji">⏱️</div>
+          <div class="game-card-title">7초 맞히기</div>
+          <div class="game-card-desc">스톱워치를 정확히 7.00초에 맞춰보세요</div>
+        </button>
+        <button class="game-card" id="game-card-nunchi">
+          <div class="game-card-emoji">👀</div>
+          <div class="game-card-title">눈치게임</div>
+          <div class="game-card-desc">다른 사람보다 먼저 누르세요! 마지막에 누르면 져요</div>
+        </button>
+      </div>
+      <button id="back-to-manage-btn" class="ghost">참가자 목록으로 돌아가기</button>
+    </section>
+
+    <!-- 게임: 7초 맞히기 -->
+    <section id="game-host-screen" class="hidden">
+      <header class="hero">
+        <h1>7초 맞히기</h1>
+        <p>모든 참가자가 동시에 스톱워치를 시작해요</p>
+      </header>
+
+      <div id="game-host-ready" class="center-block">
+        <p class="desc" id="game-host-ready-message">버튼을 누르면 모든 참가자가 동시에 시작합니다</p>
+        <button id="game-host-start-btn" class="primary">시작</button>
+      </div>
+
+      <div id="game-host-countdown" class="center-block hidden">
+        <div class="room-code" id="game-host-countdown-number">3</div>
+      </div>
+
+      <div id="game-host-leaderboard" class="hidden">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>실시간 순위</h2>
+            <span class="participant-count" id="game-host-leaderboard-count"></span>
+          </div>
+          <ul class="participant-list" id="game-host-leaderboard-list"></ul>
+          <p id="game-host-leaderboard-empty" class="empty-state">아직 제출한 참가자가 없어요</p>
+        </div>
+        <button id="game-host-reset-btn" class="primary">다시하기</button>
+        <button id="game-host-back-btn" class="ghost">게임 목록으로</button>
+      </div>
+    </section>
+
+    <!-- 게임: 눈치게임 -->
+    <section id="nunchi-host-screen" class="hidden">
+      <header class="hero">
+        <h1>눈치게임</h1>
+        <p>제일 마지막에 누르는 사람이 져요</p>
+      </header>
+
+      <div id="nunchi-host-ready" class="center-block">
+        <p class="desc">버튼을 누르면 모든 참가자가 동시에 시작합니다</p>
+        <button id="nunchi-host-start-btn" class="primary">시작</button>
+      </div>
+
+      <div id="nunchi-host-countdown" class="center-block hidden">
+        <div class="room-code" id="nunchi-host-countdown-number">3</div>
+      </div>
+
+      <div id="nunchi-host-progress" class="center-block hidden">
+        <div class="spinner"></div>
+        <p class="desc" id="nunchi-host-progress-text">0/0명 눌렀어요</p>
+      </div>
+
+      <div id="nunchi-host-reveal" class="hidden">
+        <div class="card">
+          <h2>결과 공개</h2>
+          <ul class="participant-list" id="nunchi-host-reveal-list"></ul>
+        </div>
+        <button id="nunchi-host-reset-btn" class="primary">다시하기</button>
+        <button id="nunchi-host-back-btn" class="ghost">게임 목록으로</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/qrcode.min.js"></script>
+  <script src="/js/host.js"></script>
+</body>
+</html>
