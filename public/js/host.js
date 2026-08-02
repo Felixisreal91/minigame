@@ -16,6 +16,9 @@ const emptyParticipantsEl = document.getElementById('empty-participants');
 const startPlayBtn = document.getElementById('start-play-btn');
 const backToManageBtn = document.getElementById('back-to-manage-btn');
 const gameSelectCountEl = document.getElementById('game-select-count');
+const gameSelectParticipantListEl = document.getElementById('game-select-participant-list');
+const gameSelectParticipantCountEl = document.getElementById('game-select-participant-count');
+const gameSelectEmptyParticipantsEl = document.getElementById('game-select-empty-participants');
 const gameCardStopAt7 = document.getElementById('game-card-stop-at-7');
 const gameCardNunchi = document.getElementById('game-card-nunchi');
 const gameSelectCodeBadge = document.getElementById('game-select-code-badge');
@@ -83,12 +86,18 @@ function showNunchiSubView(view) {
 
 function renderParticipants(participants) {
   participantCount = participants.length;
-  participantCountEl.textContent = `${participantCount}명`;
-  gameSelectCountEl.textContent = `참가자 ${participantCount}명과 함께`;
-  emptyParticipantsEl.classList.toggle('hidden', participantCount > 0);
-  participantListEl.innerHTML = participants
+  const listHtml = participants
     .map((p, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(p.nickname)}</li>`)
     .join('');
+
+  participantCountEl.textContent = `${participantCount}명`;
+  emptyParticipantsEl.classList.toggle('hidden', participantCount > 0);
+  participantListEl.innerHTML = listHtml;
+
+  gameSelectCountEl.textContent = `참가자 ${participantCount}명과 함께`;
+  gameSelectParticipantCountEl.textContent = `${participantCount}명`;
+  gameSelectEmptyParticipantsEl.classList.toggle('hidden', participantCount > 0);
+  gameSelectParticipantListEl.innerHTML = listHtml;
 }
 
 function escapeHtml(str) {
