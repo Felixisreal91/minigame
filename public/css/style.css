@@ -249,6 +249,39 @@ button.ghost {
   border: 1px solid var(--danger);
 }
 
+#game-select-screen {
+  position: relative;
+}
+
+.code-corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.code-badge {
+  background: var(--surface-2);
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.qr-popover {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  background: #fff;
+  padding: 12px;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
 .spinner {
   width: 36px;
   height: 36px;

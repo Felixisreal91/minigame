@@ -18,6 +18,9 @@ const backToManageBtn = document.getElementById('back-to-manage-btn');
 const gameSelectCountEl = document.getElementById('game-select-count');
 const gameCardStopAt7 = document.getElementById('game-card-stop-at-7');
 const gameCardNunchi = document.getElementById('game-card-nunchi');
+const gameSelectCodeBadge = document.getElementById('game-select-code-badge');
+const gameSelectQrPopover = document.getElementById('game-select-qr-popover');
+const gameSelectQrCanvas = document.getElementById('game-select-qr-canvas');
 
 const gameHostReady = document.getElementById('game-host-ready');
 const gameHostReadyMessage = document.getElementById('game-host-ready-message');
@@ -52,6 +55,11 @@ if (!code) {
 }
 
 roomCodeEl.textContent = code;
+gameSelectCodeBadge.textContent = code;
+
+gameSelectCodeBadge.addEventListener('click', () => {
+  gameSelectQrPopover.classList.toggle('hidden');
+});
 
 function showTopScreen(screen) {
   manageScreen.classList.toggle('hidden', screen !== 'manage');
@@ -306,6 +314,9 @@ nunchiHostBackBtn.addEventListener('click', () => {
 try {
   const joinUrl = `${location.origin}/?code=${code}`;
   QRCode.toCanvas(qrCanvas, joinUrl, { width: 180, margin: 1 }, (err) => {
+    if (err) console.error('QR 생성 실패:', err);
+  });
+  QRCode.toCanvas(gameSelectQrCanvas, joinUrl, { width: 140, margin: 1 }, (err) => {
     if (err) console.error('QR 생성 실패:', err);
   });
 } catch (err) {
