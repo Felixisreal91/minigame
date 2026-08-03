@@ -4,6 +4,7 @@ const landingScreen = document.getElementById('landing-screen');
 const waitingScreen = document.getElementById('waiting-screen');
 const gameSelectMirrorScreen = document.getElementById('game-select-mirror-screen');
 const gameScreen = document.getElementById('game-screen');
+const lightScreen = document.getElementById('light-screen');
 const nunchiScreen = document.getElementById('nunchi-screen');
 
 const createRoomBtn = document.getElementById('create-room-btn');
@@ -41,6 +42,15 @@ const nunchiPressBtn = document.getElementById('nunchi-press-btn');
 const nunchiPressStatus = document.getElementById('nunchi-press-status');
 const nunchiReveal = document.getElementById('nunchi-reveal');
 const nunchiRevealList = document.getElementById('nunchi-reveal-list');
+
+const lightReady = document.getElementById('light-ready');
+const lightPlaying = document.getElementById('light-playing');
+const lightTapBtn = document.getElementById('light-tap-btn');
+const lightStatusText = document.getElementById('light-status-text');
+const lightResult = document.getElementById('light-result');
+const lightResultBanner = document.getElementById('light-result-banner');
+const lightResultEliminated = document.getElementById('light-result-eliminated');
+const lightReactionList = document.getElementById('light-reaction-list');
 
 const tolScreen = document.getElementById('tol-screen');
 const tolWriting = document.getElementById('tol-writing');
@@ -111,6 +121,7 @@ const liarResultLiar = document.getElementById('liar-result-liar');
 const liarVoteTallyList = document.getElementById('liar-vote-tally-list');
 
 let joinedCode = null;
+let myNickname = null;
 let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game'
 let currentRound = null;
 let countdownTimer = null;
@@ -123,6 +134,8 @@ let tolIsAuthorThisRound = false;
 let bluffingCurrentRound = null;
 let liarCurrentRound = null;
 let liarIsLiar = false;
+let lightCurrentRound = null;
+let lightHasTapped = false;
 
 // QR 스캔으로 접속한 경우 코드 자동 채움
 const params = new URLSearchParams(location.search);
@@ -151,6 +164,39 @@ function showTopScreen(screen) {
   tolScreen.classList.toggle('hidden', screen !== 'truth-or-lie');
   bluffingScreen.classList.toggle('hidden', screen !== 'bluffing-number');
   liarScreen.classList.toggle('hidden', screen !== 'liar-game');
+  lightScreen.classList.toggle('hidden', screen !== 'traffic-light');
+}
+
+function showLightSubView(view) {
+  lightReady.classList.toggle('hidden', view !== 'ready');
+  lightPlaying.classList.toggle('hidden', view !== 'playing');
+  lightResult.classList.toggle('hidden', view !== 'result');
+}
+
+function startLightPlaying() {
+  lightHasTapped = false;
+  lightTapBtn.disabled = false;
+  lightTapBtn.classList.remove('light-btn--red');
+  lightTapBtn.classList.add('light-btn--green');
+  lightStatusText.textContent = '지금 누르면 탈락이에요!';
+  showTopScreen('traffic-light');
+  showLightSubView('playing');
+}
+
+function renderLightResult({ reason, eliminatedNickname, taps }) {
+  const iAmEliminated = eliminatedNickname === myNickname;
+  if (reason === 'early') {
+    lightResultBanner.textContent = iAmEliminated ? '😱 초록불에 눌렀어요!' : '😱 초록불에 눌러서 탈락!';
+  } else {
+    lightResultBanner.textContent = iAmEliminated ? '🐌 가장 늦게 눌렀어요!' : '🐌 가장 늦게 눌러서 탈락!';
+  }
+  lightResultEliminated.textContent = `${eliminatedNickname}님 탈락`;
+  lightReactionList.innerHTML = taps
+    .map((t) => {
+      const isLoser = t.nickname === eliminatedNickname;
+      return `<li class="${isLoser ? 'loser' : ''}">${escapeHtml(t.nickname)} — ${t.reactionMs}ms</li>`;
+    })
+    .join('');
 }
 
 function showLiarSubView(view) {
@@ -385,6 +431,7 @@ joinRoomBtn.addEventListener('click', () => {
     }
 
     joinedCode = code;
+    myNickname = nickname;
 
     if (res.status === 'playing' && res.currentGame) {
       activeGame = res.currentGame;
@@ -398,6 +445,9 @@ joinRoomBtn.addEventListener('click', () => {
         showTopScreen('liar-game');
         showLiarSubView('ready');
         liarReadyMessage.textContent = '라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!';
+      } else if (activeGame === 'traffic-light') {
+        showTopScreen('traffic-light');
+        showLightSubView('ready');
       } else {
         showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
       }
@@ -441,6 +491,9 @@ socket.on('game:launched', ({ game }) => {
     showTopScreen('liar-game');
     showLiarSubView('ready');
     liarReadyMessage.textContent = '호스트가 준비 중이에요';
+  } else if (game === 'traffic-light') {
+    showTopScreen('traffic-light');
+    showLightSubView('ready');
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -467,7 +520,17 @@ socket.on('game:round-start', ({ round, min, max, alive }) => {
       bluffingPickerInstruction.textContent = `${min}~${max} 사이의 숫자를 골라주세요`;
       renderBluffingNumberGrid(min, max);
     }
+  } else if (activeGame === 'traffic-light') {
+    lightCurrentRound = round;
+    startLightPlaying();
   }
+});
+
+socket.on('game:light-turned-red', () => {
+  if (activeGame !== 'traffic-light' || lightHasTapped) return;
+  lightTapBtn.classList.remove('light-btn--green');
+  lightTapBtn.classList.add('light-btn--red');
+  lightStatusText.textContent = '지금 누르세요!';
 });
 
 socket.on('game:round-reset', () => {
@@ -487,6 +550,9 @@ socket.on('game:round-reset', () => {
     showTopScreen('liar-game');
     showLiarSubView('ready');
     liarReadyMessage.textContent = '호스트가 다음 라운드를 준비하고 있어요';
+  } else if (activeGame === 'traffic-light') {
+    showTopScreen('traffic-light');
+    showLightSubView('ready');
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -569,6 +635,28 @@ socket.on('game:round-end', ({ results, eliminated }) => {
   if (activeGame !== 'nunchi') return;
   renderNunchiReveal(results, eliminated);
   showNunchiSubView('reveal');
+});
+
+// ---- 신호등 게임 ----
+
+lightTapBtn.addEventListener('click', () => {
+  if (lightHasTapped) return;
+  lightHasTapped = true;
+  lightTapBtn.disabled = true;
+  lightStatusText.textContent = '제출함, 결과 기다리는 중...';
+  socket.emit('player:tap-light', { code: joinedCode, round: lightCurrentRound }, (res) => {
+    if (!res?.success) {
+      lightHasTapped = false;
+      lightTapBtn.disabled = false;
+      lightStatusText.textContent = res?.error || '오류가 발생했습니다.';
+    }
+  });
+});
+
+socket.on('game:round-result', (payload) => {
+  if (activeGame !== 'traffic-light') return;
+  renderLightResult(payload);
+  showLightSubView('result');
 });
 
 function renderNunchiReveal(results, eliminated) {

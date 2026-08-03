@@ -58,6 +58,11 @@
           <div class="game-card-title">7초 맞히기</div>
           <div class="game-card-desc">스톱워치를 정확히 7.00초에 맞춰보세요</div>
         </button>
+        <button class="game-card game-card--traffic-light" id="game-card-traffic-light">
+          <div class="game-card-emoji">🚦</div>
+          <div class="game-card-title">신호등 게임</div>
+          <div class="game-card-desc">초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요</div>
+        </button>
         <button class="game-card game-card--nunchi" id="game-card-nunchi">
           <div class="game-card-emoji">👀</div>
           <div class="game-card-title">눈치게임</div>
@@ -117,6 +122,35 @@
         </div>
         <button id="game-host-reset-btn" class="primary">다시하기</button>
         <button id="game-host-back-btn" class="ghost">게임 목록으로</button>
+      </div>
+    </section>
+
+    <!-- 게임: 신호등 게임 -->
+    <section id="light-host-screen" class="hidden">
+      <header class="hero">
+        <h1>신호등 게임</h1>
+        <p>초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요</p>
+      </header>
+
+      <div id="light-host-ready" class="center-block">
+        <p class="desc">버튼을 누르면 무작위 타이밍에 신호등이 바뀌어요</p>
+        <button id="light-host-start-btn" class="primary">시작</button>
+      </div>
+
+      <div id="light-host-playing" class="center-block hidden">
+        <div class="light-indicator" id="light-host-indicator">🟢</div>
+        <p class="desc" id="light-host-status-text">초록불이에요... 아무도 누르면 안 돼요</p>
+        <p class="desc" id="light-host-progress-text"></p>
+      </div>
+
+      <div id="light-host-result" class="hidden">
+        <div class="card">
+          <h2 id="light-host-result-banner"></h2>
+          <p id="light-host-result-eliminated"></p>
+          <ul class="participant-list" id="light-host-reaction-list"></ul>
+        </div>
+        <button id="light-host-reset-btn" class="primary">다시하기</button>
+        <button id="light-host-back-btn" class="ghost">게임 목록으로</button>
       </div>
     </section>
 

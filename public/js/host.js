@@ -21,6 +21,7 @@ const gameSelectParticipantListEl = document.getElementById('game-select-partici
 const gameSelectParticipantCountEl = document.getElementById('game-select-participant-count');
 const gameSelectEmptyParticipantsEl = document.getElementById('game-select-empty-participants');
 const gameCardStopAt7 = document.getElementById('game-card-stop-at-7');
+const gameCardTrafficLight = document.getElementById('game-card-traffic-light');
 const gameCardNunchi = document.getElementById('game-card-nunchi');
 const gameCardTruthOrLie = document.getElementById('game-card-truth-or-lie');
 const gameCardBluffingNumber = document.getElementById('game-card-bluffing-number');
@@ -109,6 +110,20 @@ const liarHostVoteTallyList = document.getElementById('liar-host-vote-tally-list
 const liarHostNextRoundBtn = document.getElementById('liar-host-next-round-btn');
 const liarHostBackBtn = document.getElementById('liar-host-back-btn');
 
+const lightHostScreen = document.getElementById('light-host-screen');
+const lightHostReady = document.getElementById('light-host-ready');
+const lightHostStartBtn = document.getElementById('light-host-start-btn');
+const lightHostPlaying = document.getElementById('light-host-playing');
+const lightHostIndicator = document.getElementById('light-host-indicator');
+const lightHostStatusText = document.getElementById('light-host-status-text');
+const lightHostProgressText = document.getElementById('light-host-progress-text');
+const lightHostResult = document.getElementById('light-host-result');
+const lightHostResultBanner = document.getElementById('light-host-result-banner');
+const lightHostResultEliminated = document.getElementById('light-host-result-eliminated');
+const lightHostReactionList = document.getElementById('light-host-reaction-list');
+const lightHostResetBtn = document.getElementById('light-host-reset-btn');
+const lightHostBackBtn = document.getElementById('light-host-back-btn');
+
 let participantCount = 0;
 let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game'
 let countdownTimer = null;
@@ -135,7 +150,31 @@ function showTopScreen(screen) {
   tolHostScreen.classList.toggle('hidden', screen !== 'tol-host');
   bluffingHostScreen.classList.toggle('hidden', screen !== 'bluffing-host');
   liarHostScreen.classList.toggle('hidden', screen !== 'liar-host');
+  lightHostScreen.classList.toggle('hidden', screen !== 'light-host');
   hostStopBtn.classList.toggle('hidden', screen === 'game-select' || screen === 'manage');
+}
+
+function showLightHostSubView(view) {
+  lightHostReady.classList.toggle('hidden', view !== 'ready');
+  lightHostPlaying.classList.toggle('hidden', view !== 'playing');
+  lightHostResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderLightHostResult({ reason, eliminatedNickname, taps }) {
+  if (reason === 'early') {
+    lightHostResultBanner.textContent = '😱 초록불에 눌렀어요!';
+    lightHostResultEliminated.textContent = `${eliminatedNickname}님 탈락`;
+    lightHostReactionList.innerHTML = '';
+  } else {
+    lightHostResultBanner.textContent = '🐌 가장 늦게 눌렀어요!';
+    lightHostResultEliminated.textContent = `${eliminatedNickname}님 탈락`;
+    lightHostReactionList.innerHTML = taps
+      .map((t) => {
+        const isLoser = t.nickname === eliminatedNickname;
+        return `<li class="${isLoser ? 'loser' : ''}">${escapeHtml(t.nickname)} — ${t.reactionMs}ms</li>`;
+      })
+      .join('');
+  }
 }
 
 function showLiarHostSubView(view) {
@@ -373,6 +412,19 @@ socket.emit('host:attach', { code }, (res) => {
         showLiarHostSubView('ready');
         liarHostReadyMessage.textContent = '시작을 누르면 라이어가 정해져요';
       }
+    } else if (res.currentGame === 'traffic-light') {
+      showTopScreen('light-host');
+      const gs = res.gameState;
+      if (gs.round === 0 || gs.resolved) {
+        showLightHostSubView('ready');
+      } else {
+        // 라운드 도중 호스트가 새로고침한 경우: 진행 상황만 복원
+        showLightHostSubView('playing');
+        lightHostIndicator.textContent = gs.lightState === 'red' ? '🔴' : '🟢';
+        lightHostStatusText.textContent =
+          gs.lightState === 'red' ? '빨간불로 바뀌었어요!' : '초록불이에요... 아무도 누르면 안 돼요';
+        lightHostProgressText.textContent = gs.lightState === 'red' ? `${gs.taps.length}/${gs.expectedTaps}명 터치` : '';
+      }
     }
   }
 });
@@ -406,6 +458,20 @@ gameCardStopAt7.addEventListener('click', () => {
       showTopScreen('game-host');
       gameHostReadyMessage.textContent = '버튼을 누르면 모든 참가자가 동시에 시작합니다';
       showHostGameSubView('ready');
+    } else {
+      alert(res?.error || '게임을 시작할 수 없습니다.');
+    }
+  });
+});
+
+gameCardTrafficLight.addEventListener('click', () => {
+  gameCardTrafficLight.disabled = true;
+  socket.emit('host:launch-game', { code, game: 'traffic-light' }, (res) => {
+    gameCardTrafficLight.disabled = false;
+    if (res?.success) {
+      activeGame = 'traffic-light';
+      showTopScreen('light-host');
+      showLightHostSubView('ready');
     } else {
       alert(res?.error || '게임을 시작할 수 없습니다.');
     }
@@ -543,6 +609,7 @@ bluffingHostStartBtn.addEventListener('click', () => requestRoundStart(bluffingH
 bluffingHostNextRoundBtn.addEventListener('click', () => requestRoundStart(bluffingHostNextRoundBtn));
 liarHostStartBtn.addEventListener('click', () => requestRoundStart(liarHostStartBtn));
 liarHostNextRoundBtn.addEventListener('click', () => requestRoundStart(liarHostNextRoundBtn));
+lightHostStartBtn.addEventListener('click', () => requestRoundStart(lightHostStartBtn));
 
 function requestTolNextRound() {
   socket.emit('host:next-round', { code }, (res) => {
@@ -571,7 +638,24 @@ socket.on('game:round-start', () => {
   } else if (activeGame === 'bluffing-number') {
     showBluffingHostSubView('picking');
     renderBluffingHostPickProgress(0, participantCount);
+  } else if (activeGame === 'traffic-light') {
+    lightHostIndicator.textContent = '🟢';
+    lightHostStatusText.textContent = '초록불이에요... 아무도 누르면 안 돼요';
+    lightHostProgressText.textContent = '';
+    showLightHostSubView('playing');
   }
+});
+
+socket.on('game:light-turned-red', () => {
+  if (activeGame !== 'traffic-light') return;
+  lightHostIndicator.textContent = '🔴';
+  lightHostStatusText.textContent = '빨간불로 바뀌었어요!';
+  lightHostProgressText.textContent = `0/${participantCount}명 터치`;
+});
+
+socket.on('game:tap-progress', ({ tappedCount, totalParticipants }) => {
+  if (activeGame !== 'traffic-light') return;
+  lightHostProgressText.textContent = `${tappedCount}/${totalParticipants}명 터치`;
 });
 
 socket.on('game:round-reset', () => {
@@ -592,6 +676,9 @@ socket.on('game:round-reset', () => {
     liarHostStartBtn.disabled = false;
     liarHostReadyMessage.textContent = '시작을 누르면 라이어가 정해져요';
     showLiarHostSubView('ready');
+  } else if (activeGame === 'traffic-light') {
+    lightHostStartBtn.disabled = false;
+    showLightHostSubView('ready');
   }
 });
 
@@ -676,6 +763,12 @@ socket.on('game:round-result', ({ category, word, liarNickname, voteTally, parti
   showLiarHostSubView('result');
 });
 
+socket.on('game:round-result', (payload) => {
+  if (activeGame !== 'traffic-light') return;
+  renderLightHostResult(payload);
+  showLightHostSubView('result');
+});
+
 gameHostResetBtn.addEventListener('click', () => {
   socket.emit('host:reset-round', { code }, (res) => {
     if (!res?.success) {
@@ -758,8 +851,28 @@ liarHostBackBtn.addEventListener('click', () => {
   });
 });
 
+lightHostResetBtn.addEventListener('click', () => {
+  socket.emit('host:reset-round', { code }, (res) => {
+    if (!res?.success) {
+      alert(res?.error || '다시 시작할 수 없습니다.');
+    }
+  });
+});
+
+lightHostBackBtn.addEventListener('click', () => {
+  socket.emit('host:back-to-game-select', { code }, (res) => {
+    if (res?.success) {
+      showTopScreen('game-select');
+    } else {
+      alert(res?.error || '이동할 수 없습니다.');
+    }
+  });
+});
+
 hostStopBtn.addEventListener('click', () => {
-  const isMidGame = ['game-host', 'nunchi-host', 'tol-host', 'bluffing-host', 'liar-host'].includes(currentTopScreen);
+  const isMidGame = ['game-host', 'nunchi-host', 'tol-host', 'bluffing-host', 'liar-host', 'light-host'].includes(
+    currentTopScreen
+  );
   if (isMidGame && !confirm('진행 중인 게임을 중단하고 게임 선택 화면으로 돌아갈까요?')) {
     return;
   }

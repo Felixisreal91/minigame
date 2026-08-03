@@ -66,6 +66,11 @@
           <div class="game-card-title">7초 맞히기</div>
           <div class="game-card-desc">스톱워치를 정확히 7.00초에 맞춰보세요</div>
         </div>
+        <div class="game-card game-card-preview game-card--traffic-light">
+          <div class="game-card-emoji">🚦</div>
+          <div class="game-card-title">신호등 게임</div>
+          <div class="game-card-desc">초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요</div>
+        </div>
         <div class="game-card game-card-preview game-card--nunchi">
           <div class="game-card-emoji">👀</div>
           <div class="game-card-title">눈치게임</div>
@@ -120,6 +125,32 @@
             <span class="participant-count" id="game-leaderboard-count"></span>
           </div>
           <ul class="participant-list" id="game-leaderboard-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 게임 화면: 신호등 게임 -->
+    <section id="light-screen" class="hidden">
+      <header class="hero">
+        <h1>신호등 게임</h1>
+        <p>초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요</p>
+      </header>
+
+      <div id="light-ready" class="center-block">
+        <p class="desc">호스트가 준비 중이에요</p>
+      </div>
+
+      <div id="light-playing" class="center-block hidden">
+        <button id="light-tap-btn" class="primary press-btn light-btn light-btn--green">터치</button>
+        <p id="light-status-text" class="desc">지금 누르면 탈락이에요!</p>
+      </div>
+
+      <div id="light-result" class="hidden">
+        <div class="card">
+          <h2 id="light-result-banner"></h2>
+          <p id="light-result-eliminated"></p>
+          <ul class="participant-list" id="light-reaction-list"></ul>
+          <p class="desc">호스트가 다음 라운드를 준비하고 있어요</p>
         </div>
       </div>
     </section>

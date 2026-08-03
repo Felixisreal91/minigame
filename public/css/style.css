@@ -263,6 +263,10 @@ button.ghost {
   border-left-color: #4da6ff;
 }
 
+.game-card--traffic-light {
+  border-left-color: #e74c3c;
+}
+
 .game-card-preview {
   cursor: default;
 }
@@ -291,6 +295,10 @@ button.ghost {
   border-left-color: #4da6ff;
 }
 
+.game-card-preview.game-card--traffic-light:hover {
+  border-left-color: #e74c3c;
+}
+
 .game-card-emoji {
   font-size: 2rem;
 }
@@ -310,6 +318,19 @@ button.ghost {
   height: 160px;
   border-radius: 50%;
   font-size: 1.4rem;
+}
+
+.light-indicator {
+  font-size: 4rem;
+  line-height: 1;
+}
+
+button.primary.light-btn--green {
+  background: #2ecc71;
+}
+
+button.primary.light-btn--red {
+  background: #e74c3c;
 }
 
 .participant-list li.loser {

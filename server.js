@@ -49,7 +49,7 @@ const httpServer = app.listen(process.env.PORT || 3000, () => {
 const io = new Server(httpServer);
 
 // code -> { hostSocketId, participants: [{id, nickname}], status: 'waiting' | 'game-select' | 'playing',
-//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game',
+//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game' | 'traffic-light',
 //           gameState: null | (게임별로 모양이 다름, createInitialGameState 참고) }
 //   stop-at-7: { round, results: [{id, nickname, elapsedMs, diffMs}] }
 //   nunchi:    { round, results: [{id, nickname}] (배열 순서 = 누른 순서), expectedCount }
@@ -67,6 +67,10 @@ const io = new Server(httpServer);
 //     revealCategoryToLiar, round, category, word, liarId, liarNickname,
 //     roundParticipants: [{id,nickname}] (라운드 시작 시점 스냅샷, 투표 대상 고정용),
 //     votes: [{id, nickname, votedForId, votedForNickname}] (라운드마다 초기화), expectedVotes,
+//   }
+//   traffic-light: {
+//     round, lightState: 'green'|'red', redTurnedAt, taps: [{id,nickname,tappedAt}] (라운드마다 초기화),
+//     expectedTaps, resolved, redTimeoutHandle (서버 내부용, 클라이언트에 노출 안 됨),
 //   }
 const rooms = new Map();
 
@@ -137,7 +141,25 @@ function createInitialGameState(game) {
       expectedVotes: 0,
     };
   }
+  if (game === 'traffic-light') {
+    return {
+      round: 0,
+      lightState: 'green',
+      redTurnedAt: null,
+      taps: [],
+      expectedTaps: 0,
+      resolved: false,
+      redTimeoutHandle: null,
+    };
+  }
   return { round: 1, results: [] };
+}
+
+function clearLightTimeout(gs) {
+  if (gs.redTimeoutHandle) {
+    clearTimeout(gs.redTimeoutHandle);
+    gs.redTimeoutHandle = null;
+  }
 }
 
 function generateRoomCode() {
@@ -302,6 +324,33 @@ function maybeResolveLiarRound(code, room) {
 
   // liarId를 비워서 동일 라운드에 대한 중복 정산(예: 투표 이벤트와 disconnect가 겹치는 경우)을 막는다
   gs.liarId = null;
+}
+
+function resolveLightRound(code, room, { reason, eliminatedNickname }) {
+  const gs = room.gameState;
+  if (gs.resolved) return;
+  gs.resolved = true;
+  clearLightTimeout(gs);
+
+  let payload;
+  if (reason === 'early') {
+    payload = { round: gs.round, reason: 'early', eliminatedNickname, taps: [] };
+  } else {
+    const sorted = [...gs.taps].sort((a, b) => a.tappedAt - b.tappedAt);
+    const last = sorted[sorted.length - 1];
+    const taps = sorted.map((t) => ({ nickname: t.nickname, reactionMs: t.tappedAt - gs.redTurnedAt }));
+    payload = { round: gs.round, reason: 'last', eliminatedNickname: last.nickname, taps };
+  }
+
+  io.to(code).emit('game:round-result', payload);
+  saveGameResult(code, 'traffic-light', gs.round, payload);
+}
+
+function maybeResolveLightRound(code, room) {
+  const gs = room.gameState;
+  if (gs.resolved) return;
+  if (gs.taps.length < gs.expectedTaps) return;
+  resolveLightRound(code, room, { reason: 'last' });
 }
 
 io.on('connection', (socket) => {
@@ -470,6 +519,32 @@ io.on('connection', (socket) => {
         isLiar: true,
         category: gs.revealCategoryToLiar ? category : null,
       });
+      ack?.({ success: true });
+      return;
+    }
+
+    if (room.currentGame === 'traffic-light') {
+      const gs = room.gameState;
+      clearLightTimeout(gs);
+      gs.round += 1;
+      gs.lightState = 'green';
+      gs.redTurnedAt = null;
+      gs.taps = [];
+      gs.expectedTaps = room.participants.length;
+      gs.resolved = false;
+
+      io.to(code).emit('game:round-start', { round: gs.round });
+
+      const delayMs = 3000 + Math.floor(Math.random() * 9001);
+      gs.redTimeoutHandle = setTimeout(() => {
+        const currentRoom = rooms.get(code);
+        if (!currentRoom || currentRoom.gameState !== gs || gs.resolved) return;
+        gs.lightState = 'red';
+        gs.redTurnedAt = Date.now();
+        gs.redTimeoutHandle = null;
+        io.to(code).emit('game:light-turned-red', { round: gs.round });
+      }, delayMs);
+
       ack?.({ success: true });
       return;
     }
@@ -735,6 +810,41 @@ io.on('connection', (socket) => {
     maybeResolveLiarRound(code, room);
   });
 
+  socket.on('player:tap-light', ({ code, round } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.status !== 'playing' || room.currentGame !== 'traffic-light' || !room.gameState) {
+      ack?.({ success: false, error: '진행 중인 라운드가 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    if (gs.resolved || round !== gs.round) {
+      ack?.({ success: false, error: '이미 종료된 라운드입니다.' });
+      return;
+    }
+    if (gs.taps.some((t) => t.id === socket.id)) {
+      ack?.({ success: false, error: '이미 눌렀습니다.' });
+      return;
+    }
+
+    const nickname = socket.data.nickname || '참가자';
+
+    if (gs.lightState === 'green') {
+      ack?.({ success: true });
+      resolveLightRound(code, room, { reason: 'early', eliminatedNickname: nickname });
+      return;
+    }
+
+    gs.taps.push({ id: socket.id, nickname, tappedAt: Date.now() });
+    ack?.({ success: true });
+
+    io.to(code).emit('game:tap-progress', {
+      tappedCount: gs.taps.length,
+      totalParticipants: gs.expectedTaps,
+    });
+
+    maybeResolveLightRound(code, room);
+  });
+
   socket.on('host:reset-round', ({ code } = {}, ack) => {
     const room = rooms.get(code);
     if (!room || room.hostSocketId !== socket.id || !room.gameState) {
@@ -750,6 +860,9 @@ io.on('connection', (socket) => {
       const revealCategoryToLiar = room.gameState.revealCategoryToLiar;
       room.gameState = createInitialGameState('liar-game');
       room.gameState.revealCategoryToLiar = revealCategoryToLiar;
+    } else if (room.currentGame === 'traffic-light') {
+      clearLightTimeout(room.gameState);
+      room.gameState = createInitialGameState('traffic-light');
     } else {
       if (room.currentGame === 'stop-at-7' && room.gameState.results.length > 0) {
         saveGameResult(code, 'stop-at-7', room.gameState.round, { results: sortedResults(room.gameState) });
@@ -770,6 +883,9 @@ io.on('connection', (socket) => {
     if (room.currentGame === 'stop-at-7' && room.gameState?.results?.length > 0) {
       saveGameResult(code, 'stop-at-7', room.gameState.round, { results: sortedResults(room.gameState) });
     }
+    if (room.currentGame === 'traffic-light' && room.gameState) {
+      clearLightTimeout(room.gameState);
+    }
     room.status = 'game-select';
     room.currentGame = null;
     room.gameState = null;
@@ -783,6 +899,9 @@ io.on('connection', (socket) => {
     const room = rooms.get(code);
 
     if (role === 'host' && room.hostSocketId === socket.id) {
+      if (room.currentGame === 'traffic-light' && room.gameState) {
+        clearLightTimeout(room.gameState);
+      }
       rooms.delete(code);
       deleteGameResults(code);
       return;
@@ -860,6 +979,17 @@ io.on('connection', (socket) => {
             gs.expectedVotes = Math.max(0, gs.expectedVotes - 1);
           }
           maybeResolveLiarRound(code, room);
+        }
+      } else if (room.currentGame === 'traffic-light' && room.status === 'playing') {
+        const gs = room.gameState;
+        if (!gs.resolved) {
+          const hadTapped = gs.taps.some((t) => t.id === socket.id);
+          if (!hadTapped) {
+            gs.expectedTaps = Math.max(0, gs.expectedTaps - 1);
+          }
+          if (gs.lightState === 'red') {
+            maybeResolveLightRound(code, room);
+          }
         }
       }
     }
