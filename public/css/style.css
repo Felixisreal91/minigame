@@ -267,6 +267,10 @@ button.ghost {
   border-left-color: #e74c3c;
 }
 
+.game-card--indian-poker {
+  border-left-color: #e84393;
+}
+
 .game-card-preview {
   cursor: default;
 }
@@ -297,6 +301,10 @@ button.ghost {
 
 .game-card-preview.game-card--traffic-light:hover {
   border-left-color: #e74c3c;
+}
+
+.game-card-preview.game-card--indian-poker:hover {
+  border-left-color: #e84393;
 }
 
 .game-card-emoji {
@@ -336,6 +344,34 @@ button.primary.light-btn--red {
 .participant-list li.loser {
   background: rgba(255, 107, 107, 0.18);
   border: 1px solid var(--danger);
+}
+
+.participant-list li.winner {
+  background: rgba(46, 204, 113, 0.18);
+  border: 1px solid #2ecc71;
+}
+
+.indian-choice-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.indian-go-btn {
+  flex: 1;
+  background: #2ecc71;
+  color: #fff;
+  padding: 18px;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.indian-stop-btn {
+  flex: 1;
+  background: #e74c3c;
+  color: #fff;
+  padding: 18px;
+  font-size: 1.2rem;
+  font-weight: 700;
 }
 
 .tol-truth-toggle {

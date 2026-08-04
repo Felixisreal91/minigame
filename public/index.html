@@ -91,6 +91,11 @@
           <div class="game-card-title">라이어 게임</div>
           <div class="game-card-desc">라이어를 찾아라! 다수결로 못 맞히면 라이어 승</div>
         </div>
+        <div class="game-card game-card-preview game-card--indian-poker">
+          <div class="game-card-emoji">🎴</div>
+          <div class="game-card-title">인디언 포커</div>
+          <div class="game-card-desc">다른 사람 숫자만 보고 Go/Stop! Go 중 최고 숫자가 승리</div>
+        </div>
       </div>
     </section>
 
@@ -348,6 +353,41 @@
         <div class="card">
           <h2>투표 결과</h2>
           <ul class="participant-list" id="liar-vote-tally-list"></ul>
+        </div>
+        <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
+      </div>
+    </section>
+
+    <!-- 게임 화면: 인디언 포커 -->
+    <section id="indian-poker-screen" class="hidden">
+      <header class="hero">
+        <h1>인디언 포커</h1>
+        <p>다른 사람 숫자만 보고 Go/Stop을 선택하세요!</p>
+      </header>
+
+      <div id="indian-poker-ready" class="center-block">
+        <p class="desc">호스트가 준비 중이에요</p>
+      </div>
+
+      <div id="indian-poker-playing" class="hidden">
+        <div class="card">
+          <h2>다른 사람들의 숫자</h2>
+          <ul class="participant-list" id="indian-poker-others-list"></ul>
+        </div>
+        <div class="indian-choice-buttons">
+          <button id="indian-poker-go-btn" class="indian-go-btn">GO</button>
+          <button id="indian-poker-stop-btn" class="indian-stop-btn">STOP</button>
+        </div>
+        <p id="indian-poker-status-text" class="desc hidden" style="text-align:center;"></p>
+      </div>
+
+      <div id="indian-poker-result" class="hidden">
+        <div class="card" style="text-align:center;">
+          <p id="indian-poker-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
+        </div>
+        <div class="card">
+          <h2>전체 공개</h2>
+          <ul class="participant-list" id="indian-poker-reveal-list"></ul>
         </div>
         <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
       </div>

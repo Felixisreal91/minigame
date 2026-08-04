@@ -52,6 +52,17 @@ const lightResultBanner = document.getElementById('light-result-banner');
 const lightResultEliminated = document.getElementById('light-result-eliminated');
 const lightReactionList = document.getElementById('light-reaction-list');
 
+const indianScreen = document.getElementById('indian-poker-screen');
+const indianReady = document.getElementById('indian-poker-ready');
+const indianPlaying = document.getElementById('indian-poker-playing');
+const indianOthersList = document.getElementById('indian-poker-others-list');
+const indianGoBtn = document.getElementById('indian-poker-go-btn');
+const indianStopBtn = document.getElementById('indian-poker-stop-btn');
+const indianStatusText = document.getElementById('indian-poker-status-text');
+const indianResult = document.getElementById('indian-poker-result');
+const indianResultBanner = document.getElementById('indian-poker-result-banner');
+const indianRevealList = document.getElementById('indian-poker-reveal-list');
+
 const tolScreen = document.getElementById('tol-screen');
 const tolWriting = document.getElementById('tol-writing');
 const tolWriteForm = document.getElementById('tol-write-form');
@@ -136,6 +147,8 @@ let liarCurrentRound = null;
 let liarIsLiar = false;
 let lightCurrentRound = null;
 let lightHasTapped = false;
+let indianCurrentRound = null;
+let indianHasChosen = false;
 
 // QR 스캔으로 접속한 경우 코드 자동 채움
 const params = new URLSearchParams(location.search);
@@ -165,6 +178,7 @@ function showTopScreen(screen) {
   bluffingScreen.classList.toggle('hidden', screen !== 'bluffing-number');
   liarScreen.classList.toggle('hidden', screen !== 'liar-game');
   lightScreen.classList.toggle('hidden', screen !== 'traffic-light');
+  indianScreen.classList.toggle('hidden', screen !== 'indian-poker');
 }
 
 function showLightSubView(view) {
@@ -195,6 +209,34 @@ function renderLightResult({ reason, eliminatedNickname, taps }) {
     .map((t) => {
       const isLoser = t.nickname === eliminatedNickname;
       return `<li class="${isLoser ? 'loser' : ''}">${escapeHtml(t.nickname)} — ${t.reactionMs}ms</li>`;
+    })
+    .join('');
+}
+
+function showIndianSubView(view) {
+  indianReady.classList.toggle('hidden', view !== 'ready');
+  indianPlaying.classList.toggle('hidden', view !== 'playing');
+  indianResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderIndianOthers(others) {
+  indianOthersList.innerHTML = others
+    .map((o) => `<li>${escapeHtml(o.nickname)} — <strong>${o.number}</strong></li>`)
+    .join('');
+}
+
+function renderIndianResult({ reveal, winnerNickname }) {
+  if (winnerNickname) {
+    indianResultBanner.textContent =
+      winnerNickname === myNickname ? '🏆 당신이 승리했어요!' : `🏆 ${winnerNickname}님 승리!`;
+  } else {
+    indianResultBanner.textContent = '승자가 없어요 (전원 Stop)';
+  }
+  indianRevealList.innerHTML = reveal
+    .map((r) => {
+      const isWinner = r.nickname === winnerNickname;
+      const choiceLabel = r.choice === 'go' ? 'GO' : r.choice === 'stop' ? 'STOP' : '미선택';
+      return `<li class="${isWinner ? 'winner' : ''}">${escapeHtml(r.nickname)} — ${r.number} (${choiceLabel})</li>`;
     })
     .join('');
 }
@@ -448,6 +490,9 @@ joinRoomBtn.addEventListener('click', () => {
       } else if (activeGame === 'traffic-light') {
         showTopScreen('traffic-light');
         showLightSubView('ready');
+      } else if (activeGame === 'indian-poker') {
+        showTopScreen('indian-poker');
+        showIndianSubView('ready');
       } else {
         showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
       }
@@ -494,6 +539,9 @@ socket.on('game:launched', ({ game }) => {
   } else if (game === 'traffic-light') {
     showTopScreen('traffic-light');
     showLightSubView('ready');
+  } else if (game === 'indian-poker') {
+    showTopScreen('indian-poker');
+    showIndianSubView('ready');
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -553,6 +601,9 @@ socket.on('game:round-reset', () => {
   } else if (activeGame === 'traffic-light') {
     showTopScreen('traffic-light');
     showLightSubView('ready');
+  } else if (activeGame === 'indian-poker') {
+    showTopScreen('indian-poker');
+    showIndianSubView('ready');
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -657,6 +708,48 @@ socket.on('game:round-result', (payload) => {
   if (activeGame !== 'traffic-light') return;
   renderLightResult(payload);
   showLightSubView('result');
+});
+
+// ---- 인디언 포커 ----
+
+socket.on('game:indian-poker-round-start', ({ round, others }) => {
+  if (!joinedCode) return;
+  activeGame = 'indian-poker';
+  indianCurrentRound = round;
+  indianHasChosen = false;
+  indianGoBtn.disabled = false;
+  indianStopBtn.disabled = false;
+  indianStatusText.classList.add('hidden');
+  renderIndianOthers(others);
+  showTopScreen('indian-poker');
+  showIndianSubView('playing');
+});
+
+function submitIndianChoice(choice) {
+  if (indianHasChosen) return;
+  indianHasChosen = true;
+  indianGoBtn.disabled = true;
+  indianStopBtn.disabled = true;
+  socket.emit('player:submit-choice', { code: joinedCode, round: indianCurrentRound, choice }, (res) => {
+    if (res?.success) {
+      indianStatusText.classList.remove('hidden');
+      indianStatusText.textContent = `${choice === 'go' ? 'GO' : 'STOP'} 선택 완료! 기다리는 중...`;
+    } else {
+      indianHasChosen = false;
+      indianGoBtn.disabled = false;
+      indianStopBtn.disabled = false;
+      alert(res?.error || '선택에 실패했습니다.');
+    }
+  });
+}
+
+indianGoBtn.addEventListener('click', () => submitIndianChoice('go'));
+indianStopBtn.addEventListener('click', () => submitIndianChoice('stop'));
+
+socket.on('game:round-result', (payload) => {
+  if (activeGame !== 'indian-poker') return;
+  renderIndianResult(payload);
+  showIndianSubView('result');
 });
 
 function renderNunchiReveal(results, eliminated) {

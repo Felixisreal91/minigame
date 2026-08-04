@@ -26,6 +26,7 @@ const gameCardNunchi = document.getElementById('game-card-nunchi');
 const gameCardTruthOrLie = document.getElementById('game-card-truth-or-lie');
 const gameCardBluffingNumber = document.getElementById('game-card-bluffing-number');
 const gameCardLiarGame = document.getElementById('game-card-liar-game');
+const gameCardIndianPoker = document.getElementById('game-card-indian-poker');
 const hostCodeBadge = document.getElementById('host-code-badge');
 const hostQrPopover = document.getElementById('host-qr-popover');
 const hostQrPopoverCode = document.getElementById('host-qr-popover-code');
@@ -124,6 +125,17 @@ const lightHostReactionList = document.getElementById('light-host-reaction-list'
 const lightHostResetBtn = document.getElementById('light-host-reset-btn');
 const lightHostBackBtn = document.getElementById('light-host-back-btn');
 
+const indianHostScreen = document.getElementById('indian-poker-host-screen');
+const indianHostReady = document.getElementById('indian-poker-host-ready');
+const indianHostStartBtn = document.getElementById('indian-poker-host-start-btn');
+const indianHostPlaying = document.getElementById('indian-poker-host-playing');
+const indianHostProgressText = document.getElementById('indian-poker-host-progress-text');
+const indianHostResult = document.getElementById('indian-poker-host-result');
+const indianHostResultBanner = document.getElementById('indian-poker-host-result-banner');
+const indianHostRevealList = document.getElementById('indian-poker-host-reveal-list');
+const indianHostResetBtn = document.getElementById('indian-poker-host-reset-btn');
+const indianHostBackBtn = document.getElementById('indian-poker-host-back-btn');
+
 let participantCount = 0;
 let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game'
 let countdownTimer = null;
@@ -151,7 +163,25 @@ function showTopScreen(screen) {
   bluffingHostScreen.classList.toggle('hidden', screen !== 'bluffing-host');
   liarHostScreen.classList.toggle('hidden', screen !== 'liar-host');
   lightHostScreen.classList.toggle('hidden', screen !== 'light-host');
+  indianHostScreen.classList.toggle('hidden', screen !== 'indian-poker-host');
   hostStopBtn.classList.toggle('hidden', screen === 'game-select' || screen === 'manage');
+}
+
+function showIndianHostSubView(view) {
+  indianHostReady.classList.toggle('hidden', view !== 'ready');
+  indianHostPlaying.classList.toggle('hidden', view !== 'playing');
+  indianHostResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderIndianHostResult({ reveal, winnerNickname }) {
+  indianHostResultBanner.textContent = winnerNickname ? `🏆 ${winnerNickname}님 승리!` : '승자가 없어요 (전원 Stop)';
+  indianHostRevealList.innerHTML = reveal
+    .map((r) => {
+      const isWinner = r.nickname === winnerNickname;
+      const choiceLabel = r.choice === 'go' ? 'GO' : r.choice === 'stop' ? 'STOP' : '미선택';
+      return `<li class="${isWinner ? 'winner' : ''}">${escapeHtml(r.nickname)} — ${r.number} (${choiceLabel})</li>`;
+    })
+    .join('');
 }
 
 function showLightHostSubView(view) {
@@ -425,6 +455,16 @@ socket.emit('host:attach', { code }, (res) => {
           gs.lightState === 'red' ? '빨간불로 바뀌었어요!' : '초록불이에요... 아무도 누르면 안 돼요';
         lightHostProgressText.textContent = gs.lightState === 'red' ? `${gs.taps.length}/${gs.expectedTaps}명 터치` : '';
       }
+    } else if (res.currentGame === 'indian-poker') {
+      showTopScreen('indian-poker-host');
+      const gs = res.gameState;
+      if (gs.round === 0 || gs.resolved) {
+        showIndianHostSubView('ready');
+      } else {
+        // 라운드 도중 호스트가 새로고침한 경우: 진행 상황만 복원
+        showIndianHostSubView('playing');
+        indianHostProgressText.textContent = `${gs.choices.length}/${gs.expectedChoices}명 선택 완료`;
+      }
     }
   }
 });
@@ -555,6 +595,20 @@ gameCardLiarGame.addEventListener('click', () => {
   });
 });
 
+gameCardIndianPoker.addEventListener('click', () => {
+  gameCardIndianPoker.disabled = true;
+  socket.emit('host:launch-game', { code, game: 'indian-poker' }, (res) => {
+    gameCardIndianPoker.disabled = false;
+    if (res?.success) {
+      activeGame = 'indian-poker';
+      showTopScreen('indian-poker-host');
+      showIndianHostSubView('ready');
+    } else {
+      alert(res?.error || '게임을 시작할 수 없습니다.');
+    }
+  });
+});
+
 document.querySelectorAll('.liar-option-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const revealCategory = btn.dataset.reveal === 'true';
@@ -610,6 +664,7 @@ bluffingHostNextRoundBtn.addEventListener('click', () => requestRoundStart(bluff
 liarHostStartBtn.addEventListener('click', () => requestRoundStart(liarHostStartBtn));
 liarHostNextRoundBtn.addEventListener('click', () => requestRoundStart(liarHostNextRoundBtn));
 lightHostStartBtn.addEventListener('click', () => requestRoundStart(lightHostStartBtn));
+indianHostStartBtn.addEventListener('click', () => requestRoundStart(indianHostStartBtn));
 
 function requestTolNextRound() {
   socket.emit('host:next-round', { code }, (res) => {
@@ -643,6 +698,9 @@ socket.on('game:round-start', () => {
     lightHostStatusText.textContent = '초록불이에요... 아무도 누르면 안 돼요';
     lightHostProgressText.textContent = '';
     showLightHostSubView('playing');
+  } else if (activeGame === 'indian-poker') {
+    indianHostProgressText.textContent = `0/${participantCount}명 선택 완료`;
+    showIndianHostSubView('playing');
   }
 });
 
@@ -656,6 +714,11 @@ socket.on('game:light-turned-red', () => {
 socket.on('game:tap-progress', ({ tappedCount, totalParticipants }) => {
   if (activeGame !== 'traffic-light') return;
   lightHostProgressText.textContent = `${tappedCount}/${totalParticipants}명 터치`;
+});
+
+socket.on('game:choice-progress', ({ submittedCount, totalParticipants }) => {
+  if (activeGame !== 'indian-poker') return;
+  indianHostProgressText.textContent = `${submittedCount}/${totalParticipants}명 선택 완료`;
 });
 
 socket.on('game:round-reset', () => {
@@ -679,6 +742,9 @@ socket.on('game:round-reset', () => {
   } else if (activeGame === 'traffic-light') {
     lightHostStartBtn.disabled = false;
     showLightHostSubView('ready');
+  } else if (activeGame === 'indian-poker') {
+    indianHostStartBtn.disabled = false;
+    showIndianHostSubView('ready');
   }
 });
 
@@ -767,6 +833,12 @@ socket.on('game:round-result', (payload) => {
   if (activeGame !== 'traffic-light') return;
   renderLightHostResult(payload);
   showLightHostSubView('result');
+});
+
+socket.on('game:round-result', (payload) => {
+  if (activeGame !== 'indian-poker') return;
+  renderIndianHostResult(payload);
+  showIndianHostSubView('result');
 });
 
 gameHostResetBtn.addEventListener('click', () => {
@@ -869,10 +941,34 @@ lightHostBackBtn.addEventListener('click', () => {
   });
 });
 
+indianHostResetBtn.addEventListener('click', () => {
+  socket.emit('host:reset-round', { code }, (res) => {
+    if (!res?.success) {
+      alert(res?.error || '다시 시작할 수 없습니다.');
+    }
+  });
+});
+
+indianHostBackBtn.addEventListener('click', () => {
+  socket.emit('host:back-to-game-select', { code }, (res) => {
+    if (res?.success) {
+      showTopScreen('game-select');
+    } else {
+      alert(res?.error || '이동할 수 없습니다.');
+    }
+  });
+});
+
 hostStopBtn.addEventListener('click', () => {
-  const isMidGame = ['game-host', 'nunchi-host', 'tol-host', 'bluffing-host', 'liar-host', 'light-host'].includes(
-    currentTopScreen
-  );
+  const isMidGame = [
+    'game-host',
+    'nunchi-host',
+    'tol-host',
+    'bluffing-host',
+    'liar-host',
+    'light-host',
+    'indian-poker-host',
+  ].includes(currentTopScreen);
   if (isMidGame && !confirm('진행 중인 게임을 중단하고 게임 선택 화면으로 돌아갈까요?')) {
     return;
   }

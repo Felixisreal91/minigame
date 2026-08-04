@@ -49,7 +49,7 @@ const httpServer = app.listen(process.env.PORT || 3000, () => {
 const io = new Server(httpServer);
 
 // code -> { hostSocketId, participants: [{id, nickname}], status: 'waiting' | 'game-select' | 'playing',
-//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game' | 'traffic-light',
+//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game' | 'traffic-light' | 'indian-poker',
 //           gameState: null | (게임별로 모양이 다름, createInitialGameState 참고) }
 //   stop-at-7: { round, results: [{id, nickname, elapsedMs, diffMs}] }
 //   nunchi:    { round, results: [{id, nickname}] (배열 순서 = 누른 순서), expectedCount }
@@ -71,6 +71,10 @@ const io = new Server(httpServer);
 //   traffic-light: {
 //     round, lightState: 'green'|'red', redTurnedAt, taps: [{id,nickname,tappedAt}] (라운드마다 초기화),
 //     expectedTaps, resolved, redTimeoutHandle (서버 내부용, 클라이언트에 노출 안 됨),
+//   }
+//   indian-poker: {
+//     round, numbers: [{id,nickname,number}] (라운드 시작 시점 스냅샷, 1~10 중복 없이 배정),
+//     choices: [{id,nickname,choice:'go'|'stop'}] (라운드마다 초기화), expectedChoices, resolved,
 //   }
 const rooms = new Map();
 
@@ -150,6 +154,15 @@ function createInitialGameState(game) {
       expectedTaps: 0,
       resolved: false,
       redTimeoutHandle: null,
+    };
+  }
+  if (game === 'indian-poker') {
+    return {
+      round: 0,
+      numbers: [],
+      choices: [],
+      expectedChoices: 0,
+      resolved: false,
     };
   }
   return { round: 1, results: [] };
@@ -324,6 +337,36 @@ function maybeResolveLiarRound(code, room) {
 
   // liarId를 비워서 동일 라운드에 대한 중복 정산(예: 투표 이벤트와 disconnect가 겹치는 경우)을 막는다
   gs.liarId = null;
+}
+
+function resolveIndianPokerRound(code, room) {
+  const gs = room.gameState;
+  if (gs.resolved) return;
+  gs.resolved = true;
+
+  const numberById = new Map(gs.numbers.map((n) => [n.id, n.number]));
+  const goChoices = gs.choices.filter((c) => c.choice === 'go');
+  let winner = null;
+  goChoices.forEach((c) => {
+    if (!winner || numberById.get(c.id) > numberById.get(winner.id)) winner = c;
+  });
+
+  const reveal = gs.numbers
+    .map((n) => {
+      const entry = gs.choices.find((c) => c.id === n.id);
+      return { nickname: n.nickname, number: n.number, choice: entry ? entry.choice : null };
+    })
+    .sort((a, b) => b.number - a.number);
+
+  const payload = { round: gs.round, reveal, winnerNickname: winner ? winner.nickname : null };
+  io.to(code).emit('game:round-result', payload);
+  saveGameResult(code, 'indian-poker', gs.round, payload);
+}
+
+function maybeResolveIndianPokerRound(code, room) {
+  const gs = room.gameState;
+  if (gs.resolved || gs.choices.length < gs.expectedChoices) return;
+  resolveIndianPokerRound(code, room);
 }
 
 function resolveLightRound(code, room, { reason, eliminatedNickname }) {
@@ -544,6 +587,35 @@ io.on('connection', (socket) => {
         gs.redTimeoutHandle = null;
         io.to(code).emit('game:light-turned-red', { round: gs.round });
       }, delayMs);
+
+      ack?.({ success: true });
+      return;
+    }
+
+    if (room.currentGame === 'indian-poker') {
+      const gs = room.gameState;
+      if (room.participants.length < 2) {
+        ack?.({ success: false, error: '참가자가 2명 이상이어야 시작할 수 있습니다.' });
+        return;
+      }
+      if (room.participants.length > 10) {
+        ack?.({ success: false, error: '참가자가 10명을 넘으면 진행할 수 없습니다.' });
+        return;
+      }
+      const shuffledNumbers = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).slice(0, room.participants.length);
+      const numbers = room.participants.map((p, i) => ({ id: p.id, nickname: p.nickname, number: shuffledNumbers[i] }));
+
+      gs.round += 1;
+      gs.numbers = numbers;
+      gs.choices = [];
+      gs.expectedChoices = numbers.length;
+      gs.resolved = false;
+
+      numbers.forEach((me) => {
+        const others = numbers.filter((n) => n.id !== me.id).map((n) => ({ nickname: n.nickname, number: n.number }));
+        io.to(me.id).emit('game:indian-poker-round-start', { round: gs.round, others });
+      });
+      io.to(room.hostSocketId).emit('game:round-start', { round: gs.round });
 
       ack?.({ success: true });
       return;
@@ -845,6 +917,38 @@ io.on('connection', (socket) => {
     maybeResolveLightRound(code, room);
   });
 
+  socket.on('player:submit-choice', ({ code, round, choice } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.status !== 'playing' || room.currentGame !== 'indian-poker' || !room.gameState) {
+      ack?.({ success: false, error: '진행 중인 라운드가 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    if (gs.resolved || round !== gs.round) {
+      ack?.({ success: false, error: '이미 종료된 라운드입니다.' });
+      return;
+    }
+    if (choice !== 'go' && choice !== 'stop') {
+      ack?.({ success: false, error: '올바르지 않은 선택입니다.' });
+      return;
+    }
+    if (gs.choices.some((c) => c.id === socket.id)) {
+      ack?.({ success: false, error: '이미 선택했습니다.' });
+      return;
+    }
+
+    const nickname = socket.data.nickname || '참가자';
+    gs.choices.push({ id: socket.id, nickname, choice });
+    ack?.({ success: true });
+
+    io.to(code).emit('game:choice-progress', {
+      submittedCount: gs.choices.length,
+      totalParticipants: gs.expectedChoices,
+    });
+
+    maybeResolveIndianPokerRound(code, room);
+  });
+
   socket.on('host:reset-round', ({ code } = {}, ack) => {
     const room = rooms.get(code);
     if (!room || room.hostSocketId !== socket.id || !room.gameState) {
@@ -863,6 +967,8 @@ io.on('connection', (socket) => {
     } else if (room.currentGame === 'traffic-light') {
       clearLightTimeout(room.gameState);
       room.gameState = createInitialGameState('traffic-light');
+    } else if (room.currentGame === 'indian-poker') {
+      room.gameState = createInitialGameState('indian-poker');
     } else {
       if (room.currentGame === 'stop-at-7' && room.gameState.results.length > 0) {
         saveGameResult(code, 'stop-at-7', room.gameState.round, { results: sortedResults(room.gameState) });
@@ -989,6 +1095,18 @@ io.on('connection', (socket) => {
           }
           if (gs.lightState === 'red') {
             maybeResolveLightRound(code, room);
+          }
+        }
+      } else if (room.currentGame === 'indian-poker' && room.status === 'playing') {
+        const gs = room.gameState;
+        if (!gs.resolved) {
+          const wasInRound = gs.numbers.some((n) => n.id === socket.id);
+          if (wasInRound) {
+            const hadChosen = gs.choices.some((c) => c.id === socket.id);
+            if (!hadChosen) {
+              gs.expectedChoices = Math.max(0, gs.expectedChoices - 1);
+            }
+            maybeResolveIndianPokerRound(code, room);
           }
         }
       }
