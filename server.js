@@ -49,7 +49,7 @@ const httpServer = app.listen(process.env.PORT || 3000, () => {
 const io = new Server(httpServer);
 
 // code -> { hostSocketId, participants: [{id, nickname}], status: 'waiting' | 'game-select' | 'playing',
-//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game' | 'traffic-light' | 'indian-poker',
+//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game' | 'traffic-light' | 'indian-poker' | 'mbti-guess',
 //           gameState: null | (게임별로 모양이 다름, createInitialGameState 참고) }
 //   stop-at-7: { round, results: [{id, nickname, elapsedMs, diffMs}] }
 //   nunchi:    { round, results: [{id, nickname}] (배열 순서 = 누른 순서), expectedCount }
@@ -76,9 +76,22 @@ const io = new Server(httpServer);
 //     round, numbers: [{id,nickname,number}] (라운드 시작 시점 스냅샷, 1~10 중복 없이 배정),
 //     choices: [{id,nickname,choice:'go'|'stop'}] (라운드마다 초기화), expectedChoices, resolved,
 //   }
+//   mbti-guess: {
+//     round, targetId, targetNickname, answered, answer: null | {ei,sn,ft,pj},
+//     stageIndex (-1: 대상자 입력 대기, 0~3: 진행 중인 축), stageResolved,
+//     guesses: [{id,nickname,guess}] (축마다 초기화), expectedGuesses,
+//     roundParticipants: [{id,nickname}] (대상자 제외, 대상자 입력 시점 스냅샷), scoreboard: {participantId: 누적 정답 수},
+//   }
 const rooms = new Map();
 
 const TARGET_MS = 7000;
+
+const MBTI_STAGES = [
+  { axisKey: 'ei', options: ['I', 'E'], title: 'I (내향) / E (외향)' },
+  { axisKey: 'sn', options: ['S', 'N'], title: 'S (감각) / N (직관)' },
+  { axisKey: 'ft', options: ['F', 'T'], title: 'F (감정) / T (사고)' },
+  { axisKey: 'pj', options: ['P', 'J'], title: 'P (인식) / J (판단)' },
+];
 
 const LIAR_WORD_BANK = {
   음식: ['김치', '라면', '삼겹살', '치킨', '피자', '초밥', '떡볶이', '짜장면', '아이스크림', '커피'],
@@ -163,6 +176,21 @@ function createInitialGameState(game) {
       choices: [],
       expectedChoices: 0,
       resolved: false,
+    };
+  }
+  if (game === 'mbti-guess') {
+    return {
+      round: 0,
+      targetId: null,
+      targetNickname: null,
+      answered: false,
+      answer: null,
+      stageIndex: -1,
+      stageResolved: false,
+      guesses: [],
+      expectedGuesses: 0,
+      roundParticipants: [],
+      scoreboard: {},
     };
   }
   return { round: 1, results: [] };
@@ -369,6 +397,42 @@ function maybeResolveIndianPokerRound(code, room) {
   resolveIndianPokerRound(code, room);
 }
 
+function resolveMbtiStage(code, room) {
+  const gs = room.gameState;
+  if (gs.stageResolved) return;
+  gs.stageResolved = true;
+
+  const axisKey = MBTI_STAGES[gs.stageIndex].axisKey;
+  const correctLetter = gs.answer[axisKey];
+  gs.guesses.forEach((g) => {
+    if (g.guess === correctLetter) gs.scoreboard[g.id] = (gs.scoreboard[g.id] || 0) + 1;
+  });
+
+  const results = gs.guesses.map((g) => ({ nickname: g.nickname, guess: g.guess, correct: g.guess === correctLetter }));
+  const scoreboard = gs.roundParticipants
+    .map((p) => ({ nickname: p.nickname, correctCount: gs.scoreboard[p.id] || 0 }))
+    .sort((a, b) => b.correctCount - a.correctCount);
+  const isLastStage = gs.stageIndex >= MBTI_STAGES.length - 1;
+
+  const payload = {
+    stageIndex: gs.stageIndex,
+    axisKey,
+    correctLetter,
+    targetNickname: gs.targetNickname,
+    results,
+    scoreboard,
+    isLastStage,
+  };
+  io.to(code).emit('game:mbti-stage-result', payload);
+  if (isLastStage) saveGameResult(code, 'mbti-guess', gs.round, payload);
+}
+
+function maybeResolveMbtiStage(code, room) {
+  const gs = room.gameState;
+  if (!gs.answered || gs.stageResolved || gs.guesses.length < gs.expectedGuesses) return;
+  resolveMbtiStage(code, room);
+}
+
 function resolveLightRound(code, room, { reason, eliminatedNickname }) {
   const gs = room.gameState;
   if (gs.resolved) return;
@@ -503,6 +567,121 @@ io.on('connection', (socket) => {
       return;
     }
     room.gameState.revealCategoryToLiar = Boolean(revealCategory);
+    ack?.({ success: true });
+  });
+
+  socket.on('host:select-mbti-target', ({ code, targetId } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.hostSocketId !== socket.id || room.currentGame !== 'mbti-guess' || !room.gameState) {
+      ack?.({ success: false, error: '대상자를 선택할 수 없습니다.' });
+      return;
+    }
+    if (room.participants.length < 2) {
+      ack?.({ success: false, error: '참가자가 2명 이상이어야 시작할 수 있습니다.' });
+      return;
+    }
+    const target = room.participants.find((p) => p.id === targetId);
+    if (!target) {
+      ack?.({ success: false, error: '올바르지 않은 대상자입니다.' });
+      return;
+    }
+
+    const round = room.gameState.round + 1;
+    room.gameState = createInitialGameState('mbti-guess');
+    room.gameState.round = round;
+    room.gameState.targetId = target.id;
+    room.gameState.targetNickname = target.nickname;
+
+    io.to(code).emit('game:mbti-target-selected', { targetId: target.id, targetNickname: target.nickname });
+    ack?.({ success: true });
+  });
+
+  socket.on('player:submit-mbti-answer', ({ code, ei, sn, ft, pj } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.status !== 'playing' || room.currentGame !== 'mbti-guess' || !room.gameState) {
+      ack?.({ success: false, error: '진행 중인 라운드가 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    if (socket.id !== gs.targetId) {
+      ack?.({ success: false, error: '대상자만 입력할 수 있습니다.' });
+      return;
+    }
+    if (gs.answered) {
+      ack?.({ success: false, error: '이미 입력했습니다.' });
+      return;
+    }
+    const isValid =
+      ['I', 'E'].includes(ei) && ['S', 'N'].includes(sn) && ['F', 'T'].includes(ft) && ['P', 'J'].includes(pj);
+    if (!isValid) {
+      ack?.({ success: false, error: '올바르지 않은 입력입니다.' });
+      return;
+    }
+
+    gs.answer = { ei, sn, ft, pj };
+    gs.answered = true;
+    gs.roundParticipants = room.participants.filter((p) => p.id !== gs.targetId);
+    gs.stageIndex = 0;
+    gs.expectedGuesses = gs.roundParticipants.length;
+    gs.guesses = [];
+    gs.stageResolved = false;
+    ack?.({ success: true });
+
+    io.to(code).emit('game:mbti-stage-start', { stageIndex: 0, ...MBTI_STAGES[0] });
+  });
+
+  socket.on('player:submit-mbti-guess', ({ code, stageIndex, guess } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.status !== 'playing' || room.currentGame !== 'mbti-guess' || !room.gameState) {
+      ack?.({ success: false, error: '진행 중인 라운드가 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    if (!gs.answered || gs.stageResolved || stageIndex !== gs.stageIndex) {
+      ack?.({ success: false, error: '이미 종료된 단계입니다.' });
+      return;
+    }
+    if (socket.id === gs.targetId) {
+      ack?.({ success: false, error: '대상자는 참여할 수 없습니다.' });
+      return;
+    }
+    if (!MBTI_STAGES[gs.stageIndex].options.includes(guess)) {
+      ack?.({ success: false, error: '올바르지 않은 선택입니다.' });
+      return;
+    }
+    if (gs.guesses.some((g) => g.id === socket.id)) {
+      ack?.({ success: false, error: '이미 선택했습니다.' });
+      return;
+    }
+
+    const nickname = socket.data.nickname || '참가자';
+    gs.guesses.push({ id: socket.id, nickname, guess });
+    ack?.({ success: true });
+
+    io.to(code).emit('game:mbti-guess-progress', {
+      guessedCount: gs.guesses.length,
+      totalParticipants: gs.expectedGuesses,
+    });
+
+    maybeResolveMbtiStage(code, room);
+  });
+
+  socket.on('host:next-mbti-stage', ({ code } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.hostSocketId !== socket.id || room.currentGame !== 'mbti-guess' || !room.gameState) {
+      ack?.({ success: false, error: '다음 단계로 넘어갈 수 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    if (!gs.stageResolved || gs.stageIndex >= MBTI_STAGES.length - 1) {
+      ack?.({ success: false, error: '다음 단계로 넘어갈 수 없습니다.' });
+      return;
+    }
+
+    gs.stageIndex += 1;
+    gs.guesses = [];
+    gs.stageResolved = false;
+    io.to(code).emit('game:mbti-stage-start', { stageIndex: gs.stageIndex, ...MBTI_STAGES[gs.stageIndex] });
     ack?.({ success: true });
   });
 
@@ -969,6 +1148,8 @@ io.on('connection', (socket) => {
       room.gameState = createInitialGameState('traffic-light');
     } else if (room.currentGame === 'indian-poker') {
       room.gameState = createInitialGameState('indian-poker');
+    } else if (room.currentGame === 'mbti-guess') {
+      room.gameState = createInitialGameState('mbti-guess');
     } else {
       if (room.currentGame === 'stop-at-7' && room.gameState.results.length > 0) {
         saveGameResult(code, 'stop-at-7', room.gameState.round, { results: sortedResults(room.gameState) });
@@ -1107,6 +1288,22 @@ io.on('connection', (socket) => {
               gs.expectedChoices = Math.max(0, gs.expectedChoices - 1);
             }
             maybeResolveIndianPokerRound(code, room);
+          }
+        }
+      } else if (room.currentGame === 'mbti-guess' && room.status === 'playing') {
+        const gs = room.gameState;
+        if (socket.id === gs.targetId && !gs.answered) {
+          // 대상자가 답변 전에 나가면 정답을 알 수 없으므로 대상자 선택 화면으로 강제 리셋
+          room.gameState = createInitialGameState('mbti-guess');
+          io.to(code).emit('game:round-reset', {});
+        } else if (gs.answered && !gs.stageResolved) {
+          const wasInRound = gs.roundParticipants.some((p) => p.id === socket.id);
+          if (wasInRound) {
+            const hadGuessed = gs.guesses.some((g) => g.id === socket.id);
+            if (!hadGuessed) {
+              gs.expectedGuesses = Math.max(0, gs.expectedGuesses - 1);
+            }
+            maybeResolveMbtiStage(code, room);
           }
         }
       }

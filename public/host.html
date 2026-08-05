@@ -88,6 +88,11 @@
           <div class="game-card-title">인디언 포커</div>
           <div class="game-card-desc">다른 사람 숫자만 보고 Go/Stop! Go 중 최고 숫자가 승리</div>
         </button>
+        <button class="game-card game-card--mbti-guess" id="game-card-mbti-guess">
+          <div class="game-card-emoji">🧠</div>
+          <div class="game-card-title">MBTI 맞히기</div>
+          <div class="game-card-desc">한 사람을 골라 MBTI를 단계별로 맞혀보세요!</div>
+        </button>
       </div>
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -366,6 +371,51 @@
         </div>
         <button id="indian-poker-host-reset-btn" class="primary">다시하기</button>
         <button id="indian-poker-host-back-btn" class="ghost">게임 목록으로</button>
+      </div>
+    </section>
+
+    <!-- 게임: MBTI 맞히기 -->
+    <section id="mbti-host-screen" class="hidden">
+      <header class="hero">
+        <h1>MBTI 맞히기</h1>
+        <p>한 사람을 골라 MBTI를 단계별로 맞혀보세요!</p>
+      </header>
+
+      <div id="mbti-host-ready" class="center-block">
+        <p class="desc">대상자를 선택하세요</p>
+        <div class="liar-vote-list" id="mbti-host-target-list"></div>
+      </div>
+
+      <div id="mbti-host-waiting-answer" class="center-block hidden">
+        <div class="spinner"></div>
+        <p class="desc" id="mbti-host-waiting-text"></p>
+      </div>
+
+      <div id="mbti-host-guessing" class="center-block hidden">
+        <p class="desc" id="mbti-host-stage-title" style="font-size:1.2rem; font-weight:700;"></p>
+        <p class="desc" id="mbti-host-guess-progress"></p>
+      </div>
+
+      <div id="mbti-host-result" class="hidden">
+        <div class="card" style="text-align:center;">
+          <p class="desc" style="margin:0;" id="mbti-host-result-axis"></p>
+          <p id="mbti-host-result-answer" style="font-size:1.3rem; font-weight:800;"></p>
+        </div>
+        <div class="card">
+          <h2>이번 단계 결과</h2>
+          <ul class="participant-list" id="mbti-host-result-list"></ul>
+        </div>
+        <div class="card">
+          <h2>누적 점수</h2>
+          <ul class="participant-list" id="mbti-host-scoreboard-list"></ul>
+        </div>
+        <div id="mbti-host-next" class="hidden">
+          <button id="mbti-host-next-stage-btn" class="primary">다음 단계</button>
+        </div>
+        <div id="mbti-host-final" class="hidden">
+          <button id="mbti-host-restart-btn" class="primary">다시하기</button>
+          <button id="mbti-host-back-btn" class="ghost">게임 목록으로</button>
+        </div>
       </div>
     </section>
   </div>

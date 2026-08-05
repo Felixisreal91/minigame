@@ -27,6 +27,7 @@ const gameCardTruthOrLie = document.getElementById('game-card-truth-or-lie');
 const gameCardBluffingNumber = document.getElementById('game-card-bluffing-number');
 const gameCardLiarGame = document.getElementById('game-card-liar-game');
 const gameCardIndianPoker = document.getElementById('game-card-indian-poker');
+const gameCardMbtiGuess = document.getElementById('game-card-mbti-guess');
 const hostCodeBadge = document.getElementById('host-code-badge');
 const hostQrPopover = document.getElementById('host-qr-popover');
 const hostQrPopoverCode = document.getElementById('host-qr-popover-code');
@@ -136,7 +137,27 @@ const indianHostRevealList = document.getElementById('indian-poker-host-reveal-l
 const indianHostResetBtn = document.getElementById('indian-poker-host-reset-btn');
 const indianHostBackBtn = document.getElementById('indian-poker-host-back-btn');
 
+const mbtiHostScreen = document.getElementById('mbti-host-screen');
+const mbtiHostReady = document.getElementById('mbti-host-ready');
+const mbtiHostTargetList = document.getElementById('mbti-host-target-list');
+const mbtiHostWaitingAnswer = document.getElementById('mbti-host-waiting-answer');
+const mbtiHostWaitingText = document.getElementById('mbti-host-waiting-text');
+const mbtiHostGuessing = document.getElementById('mbti-host-guessing');
+const mbtiHostStageTitle = document.getElementById('mbti-host-stage-title');
+const mbtiHostGuessProgress = document.getElementById('mbti-host-guess-progress');
+const mbtiHostResult = document.getElementById('mbti-host-result');
+const mbtiHostResultAxis = document.getElementById('mbti-host-result-axis');
+const mbtiHostResultAnswer = document.getElementById('mbti-host-result-answer');
+const mbtiHostResultList = document.getElementById('mbti-host-result-list');
+const mbtiHostScoreboardList = document.getElementById('mbti-host-scoreboard-list');
+const mbtiHostNext = document.getElementById('mbti-host-next');
+const mbtiHostNextStageBtn = document.getElementById('mbti-host-next-stage-btn');
+const mbtiHostFinal = document.getElementById('mbti-host-final');
+const mbtiHostRestartBtn = document.getElementById('mbti-host-restart-btn');
+const mbtiHostBackBtn = document.getElementById('mbti-host-back-btn');
+
 let participantCount = 0;
+let currentParticipants = [];
 let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game'
 let countdownTimer = null;
 let currentTopScreen = null;
@@ -164,6 +185,7 @@ function showTopScreen(screen) {
   liarHostScreen.classList.toggle('hidden', screen !== 'liar-host');
   lightHostScreen.classList.toggle('hidden', screen !== 'light-host');
   indianHostScreen.classList.toggle('hidden', screen !== 'indian-poker-host');
+  mbtiHostScreen.classList.toggle('hidden', screen !== 'mbti-host');
   hostStopBtn.classList.toggle('hidden', screen === 'game-select' || screen === 'manage');
 }
 
@@ -182,6 +204,50 @@ function renderIndianHostResult({ reveal, winnerNickname }) {
       return `<li class="${isWinner ? 'winner' : ''}">${escapeHtml(r.nickname)} — ${r.number} (${choiceLabel})</li>`;
     })
     .join('');
+}
+
+function showMbtiHostSubView(view) {
+  mbtiHostReady.classList.toggle('hidden', view !== 'ready');
+  mbtiHostWaitingAnswer.classList.toggle('hidden', view !== 'waiting-answer');
+  mbtiHostGuessing.classList.toggle('hidden', view !== 'guessing');
+  mbtiHostResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderMbtiTargetList(participants) {
+  mbtiHostTargetList.innerHTML = '';
+  participants.forEach((p) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ghost liar-vote-btn';
+    btn.textContent = p.nickname;
+    btn.addEventListener('click', () => {
+      Array.from(mbtiHostTargetList.children).forEach((b) => {
+        b.disabled = true;
+      });
+      socket.emit('host:select-mbti-target', { code, targetId: p.id }, (res) => {
+        if (!res?.success) {
+          Array.from(mbtiHostTargetList.children).forEach((b) => {
+            b.disabled = false;
+          });
+          alert(res?.error || '대상자를 선택할 수 없습니다.');
+        }
+      });
+    });
+    mbtiHostTargetList.appendChild(btn);
+  });
+}
+
+function renderMbtiHostResult({ axisKey, correctLetter, targetNickname, results, scoreboard, isLastStage }) {
+  mbtiHostResultAxis.textContent = `${targetNickname}님의 정답 (${axisKey.toUpperCase()})`;
+  mbtiHostResultAnswer.textContent = correctLetter;
+  mbtiHostResultList.innerHTML = results
+    .map((r) => `<li class="${r.correct ? 'winner' : 'loser'}">${escapeHtml(r.nickname)} — ${r.guess} ${r.correct ? '✅' : '❌'}</li>`)
+    .join('');
+  mbtiHostScoreboardList.innerHTML = scoreboard
+    .map((s, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(s.nickname)} — ${s.correctCount}개 정답</li>`)
+    .join('');
+  mbtiHostNext.classList.toggle('hidden', isLastStage);
+  mbtiHostFinal.classList.toggle('hidden', !isLastStage);
 }
 
 function showLightHostSubView(view) {
@@ -313,6 +379,7 @@ function showNunchiSubView(view) {
 }
 
 function renderParticipants(participants) {
+  currentParticipants = participants;
   participantCount = participants.length;
   const listHtml = participants
     .map((p, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(p.nickname)}</li>`)
@@ -465,6 +532,20 @@ socket.emit('host:attach', { code }, (res) => {
         showIndianHostSubView('playing');
         indianHostProgressText.textContent = `${gs.choices.length}/${gs.expectedChoices}명 선택 완료`;
       }
+    } else if (res.currentGame === 'mbti-guess') {
+      showTopScreen('mbti-host');
+      const gs = res.gameState;
+      if (!gs.targetId) {
+        renderMbtiTargetList(res.participants);
+        showMbtiHostSubView('ready');
+      } else if (!gs.answered) {
+        mbtiHostWaitingText.textContent = `${gs.targetNickname}님이 자신의 MBTI를 입력하는 중...`;
+        showMbtiHostSubView('waiting-answer');
+      } else {
+        // 라운드 도중 호스트가 새로고침한 경우: 진행 상황만 복원
+        showMbtiHostSubView('guessing');
+        mbtiHostGuessProgress.textContent = `${gs.guesses.length}/${gs.expectedGuesses}명 응답`;
+      }
     }
   }
 });
@@ -609,6 +690,21 @@ gameCardIndianPoker.addEventListener('click', () => {
   });
 });
 
+gameCardMbtiGuess.addEventListener('click', () => {
+  gameCardMbtiGuess.disabled = true;
+  socket.emit('host:launch-game', { code, game: 'mbti-guess' }, (res) => {
+    gameCardMbtiGuess.disabled = false;
+    if (res?.success) {
+      activeGame = 'mbti-guess';
+      showTopScreen('mbti-host');
+      renderMbtiTargetList(currentParticipants);
+      showMbtiHostSubView('ready');
+    } else {
+      alert(res?.error || '게임을 시작할 수 없습니다.');
+    }
+  });
+});
+
 document.querySelectorAll('.liar-option-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const revealCategory = btn.dataset.reveal === 'true';
@@ -745,6 +841,9 @@ socket.on('game:round-reset', () => {
   } else if (activeGame === 'indian-poker') {
     indianHostStartBtn.disabled = false;
     showIndianHostSubView('ready');
+  } else if (activeGame === 'mbti-guess') {
+    renderMbtiTargetList(currentParticipants);
+    showMbtiHostSubView('ready');
   }
 });
 
@@ -839,6 +938,58 @@ socket.on('game:round-result', (payload) => {
   if (activeGame !== 'indian-poker') return;
   renderIndianHostResult(payload);
   showIndianHostSubView('result');
+});
+
+socket.on('game:mbti-target-selected', ({ targetNickname }) => {
+  if (activeGame !== 'mbti-guess') return;
+  mbtiHostWaitingText.textContent = `${targetNickname}님이 자신의 MBTI를 입력하는 중...`;
+  showMbtiHostSubView('waiting-answer');
+});
+
+socket.on('game:mbti-stage-start', ({ title }) => {
+  if (activeGame !== 'mbti-guess') return;
+  mbtiHostStageTitle.textContent = title;
+  mbtiHostGuessProgress.textContent = `0/${participantCount - 1}명 응답`;
+  showMbtiHostSubView('guessing');
+});
+
+socket.on('game:mbti-guess-progress', ({ guessedCount, totalParticipants }) => {
+  if (activeGame !== 'mbti-guess') return;
+  mbtiHostGuessProgress.textContent = `${guessedCount}/${totalParticipants}명 응답`;
+});
+
+socket.on('game:mbti-stage-result', (payload) => {
+  if (activeGame !== 'mbti-guess') return;
+  renderMbtiHostResult(payload);
+  showMbtiHostSubView('result');
+});
+
+mbtiHostNextStageBtn.addEventListener('click', () => {
+  mbtiHostNextStageBtn.disabled = true;
+  socket.emit('host:next-mbti-stage', { code }, (res) => {
+    mbtiHostNextStageBtn.disabled = false;
+    if (!res?.success) {
+      alert(res?.error || '다음 단계로 넘어갈 수 없습니다.');
+    }
+  });
+});
+
+mbtiHostRestartBtn.addEventListener('click', () => {
+  socket.emit('host:reset-round', { code }, (res) => {
+    if (!res?.success) {
+      alert(res?.error || '다시 시작할 수 없습니다.');
+    }
+  });
+});
+
+mbtiHostBackBtn.addEventListener('click', () => {
+  socket.emit('host:back-to-game-select', { code }, (res) => {
+    if (res?.success) {
+      showTopScreen('game-select');
+    } else {
+      alert(res?.error || '이동할 수 없습니다.');
+    }
+  });
 });
 
 gameHostResetBtn.addEventListener('click', () => {
@@ -968,6 +1119,7 @@ hostStopBtn.addEventListener('click', () => {
     'liar-host',
     'light-host',
     'indian-poker-host',
+    'mbti-host',
   ].includes(currentTopScreen);
   if (isMidGame && !confirm('진행 중인 게임을 중단하고 게임 선택 화면으로 돌아갈까요?')) {
     return;

@@ -63,6 +63,27 @@ const indianResult = document.getElementById('indian-poker-result');
 const indianResultBanner = document.getElementById('indian-poker-result-banner');
 const indianRevealList = document.getElementById('indian-poker-reveal-list');
 
+const mbtiScreen = document.getElementById('mbti-screen');
+const mbtiReady = document.getElementById('mbti-ready');
+const mbtiTargetForm = document.getElementById('mbti-target-form');
+const mbtiAnswerForm = document.getElementById('mbti-answer-form');
+const mbtiAnswerSubmitBtn = document.getElementById('mbti-answer-submit-btn');
+const mbtiAnswerWait = document.getElementById('mbti-answer-wait');
+const mbtiAnswerWaitText = document.getElementById('mbti-answer-wait-text');
+const mbtiGuessing = document.getElementById('mbti-guessing');
+const mbtiGuessButtons = document.getElementById('mbti-guess-buttons');
+const mbtiGuessTitle = document.getElementById('mbti-guess-title');
+const mbtiGuessOption0 = document.getElementById('mbti-guess-option-0');
+const mbtiGuessOption1 = document.getElementById('mbti-guess-option-1');
+const mbtiGuessDone = document.getElementById('mbti-guess-done');
+const mbtiGuessTargetWait = document.getElementById('mbti-guess-target-wait');
+const mbtiResult = document.getElementById('mbti-result');
+const mbtiResultBanner = document.getElementById('mbti-result-banner');
+const mbtiResultAxis = document.getElementById('mbti-result-axis');
+const mbtiResultList = document.getElementById('mbti-result-list');
+const mbtiScoreboardList = document.getElementById('mbti-scoreboard-list');
+const mbtiResultWaitText = document.getElementById('mbti-result-wait-text');
+
 const tolScreen = document.getElementById('tol-screen');
 const tolWriting = document.getElementById('tol-writing');
 const tolWriteForm = document.getElementById('tol-write-form');
@@ -149,6 +170,10 @@ let lightCurrentRound = null;
 let lightHasTapped = false;
 let indianCurrentRound = null;
 let indianHasChosen = false;
+let mbtiIsTarget = false;
+let mbtiAnswerSelections = {};
+let mbtiStageIndex = null;
+let mbtiHasGuessed = false;
 
 // QR 스캔으로 접속한 경우 코드 자동 채움
 const params = new URLSearchParams(location.search);
@@ -179,6 +204,7 @@ function showTopScreen(screen) {
   liarScreen.classList.toggle('hidden', screen !== 'liar-game');
   lightScreen.classList.toggle('hidden', screen !== 'traffic-light');
   indianScreen.classList.toggle('hidden', screen !== 'indian-poker');
+  mbtiScreen.classList.toggle('hidden', screen !== 'mbti-guess');
 }
 
 function showLightSubView(view) {
@@ -239,6 +265,70 @@ function renderIndianResult({ reveal, winnerNickname }) {
       return `<li class="${isWinner ? 'winner' : ''}">${escapeHtml(r.nickname)} — ${r.number} (${choiceLabel})</li>`;
     })
     .join('');
+}
+
+function showMbtiSubView(view) {
+  mbtiReady.classList.toggle('hidden', view !== 'ready');
+  mbtiTargetForm.classList.toggle('hidden', view !== 'target-form');
+  mbtiGuessing.classList.toggle('hidden', view !== 'guessing');
+  mbtiResult.classList.toggle('hidden', view !== 'result');
+}
+
+function resetMbtiAnswerForm() {
+  mbtiAnswerSelections = {};
+  document.querySelectorAll('.mbti-answer-btn').forEach((btn) => {
+    btn.classList.remove('selected');
+    btn.disabled = false;
+  });
+  mbtiAnswerSubmitBtn.disabled = true;
+}
+
+function showMbtiTargetFormRole(targetNickname) {
+  mbtiAnswerForm.classList.toggle('hidden', !mbtiIsTarget);
+  mbtiAnswerWait.classList.toggle('hidden', mbtiIsTarget);
+  if (!mbtiIsTarget) {
+    mbtiAnswerWaitText.textContent = `${targetNickname}님이 자신의 MBTI를 입력하는 중이에요...`;
+  } else {
+    resetMbtiAnswerForm();
+  }
+  showMbtiSubView('target-form');
+}
+
+function showMbtiGuessingRole({ title, options }) {
+  mbtiHasGuessed = false;
+  mbtiGuessButtons.classList.toggle('hidden', mbtiIsTarget);
+  mbtiGuessDone.classList.add('hidden');
+  mbtiGuessTargetWait.classList.toggle('hidden', !mbtiIsTarget);
+  if (!mbtiIsTarget) {
+    mbtiGuessTitle.textContent = title;
+    mbtiGuessOption0.textContent = options[0];
+    mbtiGuessOption1.textContent = options[1];
+    mbtiGuessOption0.disabled = false;
+    mbtiGuessOption1.disabled = false;
+  }
+  showMbtiSubView('guessing');
+}
+
+function renderMbtiResult({ axisKey, correctLetter, targetNickname, results, scoreboard, isLastStage }) {
+  const myResult = results.find((r) => r.nickname === myNickname);
+  if (mbtiIsTarget) {
+    mbtiResultBanner.textContent = isLastStage ? '🎉 최종 결과!' : `정답: ${correctLetter}`;
+  } else if (myResult) {
+    mbtiResultBanner.textContent = myResult.correct ? '정답! 🎉' : '아쉬워요 😅';
+  } else {
+    mbtiResultBanner.textContent = `정답: ${correctLetter}`;
+  }
+  mbtiResultAxis.textContent = `${targetNickname}님의 ${axisKey.toUpperCase()} 정답은 ${correctLetter}`;
+  mbtiResultList.innerHTML = results
+    .map((r) => `<li class="${r.correct ? 'winner' : 'loser'}">${escapeHtml(r.nickname)} — ${r.guess} ${r.correct ? '✅' : '❌'}</li>`)
+    .join('');
+  mbtiScoreboardList.innerHTML = scoreboard
+    .map((s, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(s.nickname)} — ${s.correctCount}개 정답</li>`)
+    .join('');
+  mbtiResultWaitText.textContent = isLastStage
+    ? '호스트가 다음 라운드를 준비하고 있어요'
+    : '호스트가 다음 단계를 준비하고 있어요';
+  showMbtiSubView('result');
 }
 
 function showLiarSubView(view) {
@@ -493,6 +583,9 @@ joinRoomBtn.addEventListener('click', () => {
       } else if (activeGame === 'indian-poker') {
         showTopScreen('indian-poker');
         showIndianSubView('ready');
+      } else if (activeGame === 'mbti-guess') {
+        showTopScreen('mbti-guess');
+        showMbtiSubView('ready');
       } else {
         showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
       }
@@ -542,6 +635,9 @@ socket.on('game:launched', ({ game }) => {
   } else if (game === 'indian-poker') {
     showTopScreen('indian-poker');
     showIndianSubView('ready');
+  } else if (game === 'mbti-guess') {
+    showTopScreen('mbti-guess');
+    showMbtiSubView('ready');
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -604,6 +700,9 @@ socket.on('game:round-reset', () => {
   } else if (activeGame === 'indian-poker') {
     showTopScreen('indian-poker');
     showIndianSubView('ready');
+  } else if (activeGame === 'mbti-guess') {
+    showTopScreen('mbti-guess');
+    showMbtiSubView('ready');
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -750,6 +849,85 @@ socket.on('game:round-result', (payload) => {
   if (activeGame !== 'indian-poker') return;
   renderIndianResult(payload);
   showIndianSubView('result');
+});
+
+// ---- MBTI 맞히기 ----
+
+socket.on('game:mbti-target-selected', ({ targetId, targetNickname }) => {
+  if (!joinedCode) return;
+  activeGame = 'mbti-guess';
+  mbtiIsTarget = targetId === socket.id;
+  showTopScreen('mbti-guess');
+  showMbtiTargetFormRole(targetNickname);
+});
+
+document.querySelectorAll('.mbti-answer-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const axis = btn.dataset.axis;
+    mbtiAnswerSelections[axis] = btn.dataset.value;
+    document.querySelectorAll(`.mbti-answer-btn[data-axis="${axis}"]`).forEach((b) => {
+      b.classList.toggle('selected', b === btn);
+    });
+    mbtiAnswerSubmitBtn.disabled = !['ei', 'sn', 'ft', 'pj'].every((a) => mbtiAnswerSelections[a]);
+  });
+});
+
+mbtiAnswerSubmitBtn.addEventListener('click', () => {
+  mbtiAnswerSubmitBtn.disabled = true;
+  document.querySelectorAll('.mbti-answer-btn').forEach((b) => {
+    b.disabled = true;
+  });
+  socket.emit(
+    'player:submit-mbti-answer',
+    {
+      code: joinedCode,
+      ei: mbtiAnswerSelections.ei,
+      sn: mbtiAnswerSelections.sn,
+      ft: mbtiAnswerSelections.ft,
+      pj: mbtiAnswerSelections.pj,
+    },
+    (res) => {
+      if (!res?.success) {
+        mbtiAnswerSubmitBtn.disabled = false;
+        document.querySelectorAll('.mbti-answer-btn').forEach((b) => {
+          b.disabled = false;
+        });
+        alert(res?.error || '제출에 실패했습니다.');
+      }
+    }
+  );
+});
+
+socket.on('game:mbti-stage-start', ({ stageIndex, title, options }) => {
+  if (activeGame !== 'mbti-guess') return;
+  mbtiStageIndex = stageIndex;
+  showMbtiGuessingRole({ title, options });
+});
+
+function submitMbtiGuess(guess) {
+  if (mbtiHasGuessed) return;
+  mbtiHasGuessed = true;
+  mbtiGuessOption0.disabled = true;
+  mbtiGuessOption1.disabled = true;
+  socket.emit('player:submit-mbti-guess', { code: joinedCode, stageIndex: mbtiStageIndex, guess }, (res) => {
+    if (res?.success) {
+      mbtiGuessButtons.classList.add('hidden');
+      mbtiGuessDone.classList.remove('hidden');
+    } else {
+      mbtiHasGuessed = false;
+      mbtiGuessOption0.disabled = false;
+      mbtiGuessOption1.disabled = false;
+      alert(res?.error || '선택에 실패했습니다.');
+    }
+  });
+}
+
+mbtiGuessOption0.addEventListener('click', () => submitMbtiGuess(mbtiGuessOption0.textContent));
+mbtiGuessOption1.addEventListener('click', () => submitMbtiGuess(mbtiGuessOption1.textContent));
+
+socket.on('game:round-result', (payload) => {
+  if (activeGame !== 'mbti-guess') return;
+  renderMbtiResult(payload);
 });
 
 function renderNunchiReveal(results, eliminated) {

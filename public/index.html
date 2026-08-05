@@ -96,6 +96,11 @@
           <div class="game-card-title">인디언 포커</div>
           <div class="game-card-desc">다른 사람 숫자만 보고 Go/Stop! Go 중 최고 숫자가 승리</div>
         </div>
+        <div class="game-card game-card-preview game-card--mbti-guess">
+          <div class="game-card-emoji">🧠</div>
+          <div class="game-card-title">MBTI 맞히기</div>
+          <div class="game-card-desc">한 사람을 골라 MBTI를 단계별로 맞혀보세요!</div>
+        </div>
       </div>
     </section>
 
@@ -390,6 +395,93 @@
           <ul class="participant-list" id="indian-poker-reveal-list"></ul>
         </div>
         <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
+      </div>
+    </section>
+
+    <!-- 게임 화면: MBTI 맞히기 -->
+    <section id="mbti-screen" class="hidden">
+      <header class="hero">
+        <h1>MBTI 맞히기</h1>
+        <p>대상자의 MBTI를 단계별로 맞혀보세요!</p>
+      </header>
+
+      <div id="mbti-ready" class="center-block">
+        <p class="desc">호스트가 대상자를 고르는 중이에요</p>
+      </div>
+
+      <div id="mbti-target-form" class="hidden">
+        <div id="mbti-answer-form">
+          <div class="card">
+            <p class="desc" style="margin:0 0 6px;">I (내향) / E (외향)</p>
+            <div class="tol-truth-toggle">
+              <button class="tol-toggle-btn mbti-answer-btn" data-axis="ei" data-value="I">I</button>
+              <button class="tol-toggle-btn mbti-answer-btn" data-axis="ei" data-value="E">E</button>
+            </div>
+          </div>
+          <div class="card">
+            <p class="desc" style="margin:0 0 6px;">S (감각) / N (직관)</p>
+            <div class="tol-truth-toggle">
+              <button class="tol-toggle-btn mbti-answer-btn" data-axis="sn" data-value="S">S</button>
+              <button class="tol-toggle-btn mbti-answer-btn" data-axis="sn" data-value="N">N</button>
+            </div>
+          </div>
+          <div class="card">
+            <p class="desc" style="margin:0 0 6px;">F (감정) / T (사고)</p>
+            <div class="tol-truth-toggle">
+              <button class="tol-toggle-btn mbti-answer-btn" data-axis="ft" data-value="F">F</button>
+              <button class="tol-toggle-btn mbti-answer-btn" data-axis="ft" data-value="T">T</button>
+            </div>
+          </div>
+          <div class="card">
+            <p class="desc" style="margin:0 0 6px;">P (인식) / J (판단)</p>
+            <div class="tol-truth-toggle">
+              <button class="tol-toggle-btn mbti-answer-btn" data-axis="pj" data-value="P">P</button>
+              <button class="tol-toggle-btn mbti-answer-btn" data-axis="pj" data-value="J">J</button>
+            </div>
+          </div>
+          <button id="mbti-answer-submit-btn" class="primary" disabled>제출</button>
+        </div>
+
+        <div id="mbti-answer-wait" class="center-block hidden">
+          <div class="spinner"></div>
+          <p class="desc" id="mbti-answer-wait-text"></p>
+        </div>
+      </div>
+
+      <div id="mbti-guessing" class="hidden">
+        <div id="mbti-guess-buttons">
+          <p class="desc" id="mbti-guess-title" style="text-align:center; font-weight:700; font-size:1.1rem;"></p>
+          <div class="indian-choice-buttons">
+            <button id="mbti-guess-option-0" class="indian-go-btn"></button>
+            <button id="mbti-guess-option-1" class="indian-stop-btn"></button>
+          </div>
+        </div>
+
+        <div id="mbti-guess-done" class="center-block hidden">
+          <div class="spinner"></div>
+          <p class="desc">제출함, 결과 기다리는 중...</p>
+        </div>
+
+        <div id="mbti-guess-target-wait" class="center-block hidden">
+          <div class="spinner"></div>
+          <p class="desc">다른 사람들이 당신의 MBTI를 맞히고 있어요...</p>
+        </div>
+      </div>
+
+      <div id="mbti-result" class="hidden">
+        <div class="card" style="text-align:center;">
+          <p id="mbti-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
+          <p class="desc" style="margin:0;" id="mbti-result-axis"></p>
+        </div>
+        <div class="card">
+          <h2>이번 단계 결과</h2>
+          <ul class="participant-list" id="mbti-result-list"></ul>
+        </div>
+        <div class="card">
+          <h2>누적 점수</h2>
+          <ul class="participant-list" id="mbti-scoreboard-list"></ul>
+        </div>
+        <p class="desc" style="text-align:center;" id="mbti-result-wait-text"></p>
       </div>
     </section>
   </div>

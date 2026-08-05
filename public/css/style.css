@@ -271,6 +271,10 @@ button.ghost {
   border-left-color: #e84393;
 }
 
+.game-card--mbti-guess {
+  border-left-color: #00b8d9;
+}
+
 .game-card-preview {
   cursor: default;
 }
@@ -305,6 +309,10 @@ button.ghost {
 
 .game-card-preview.game-card--indian-poker:hover {
   border-left-color: #e84393;
+}
+
+.game-card-preview.game-card--mbti-guess:hover {
+  border-left-color: #00b8d9;
 }
 
 .game-card-emoji {
