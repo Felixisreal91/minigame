@@ -542,6 +542,66 @@ createRoomBtn.addEventListener('click', () => {
   });
 });
 
+const PARTICIPANT_SESSION_KEY = 'minigame:participant';
+
+function persistJoinSession(code, nickname) {
+  try {
+    localStorage.setItem(PARTICIPANT_SESSION_KEY, JSON.stringify({ code, nickname }));
+  } catch (err) {
+    // localStorage 사용 불가 환경(프라이빗 모드 등) - 새로고침 복원만 안 될 뿐 기능에는 영향 없음
+  }
+}
+
+function clearJoinSession() {
+  try {
+    localStorage.removeItem(PARTICIPANT_SESSION_KEY);
+  } catch (err) {
+    // 무시
+  }
+}
+
+function applyJoinResult(res, code, nickname) {
+  joinedCode = code;
+  myNickname = nickname;
+
+  if (res.status === 'playing' && res.currentGame) {
+    activeGame = res.currentGame;
+    if (activeGame === 'truth-or-lie') {
+      showTolSpectatorWaiting('라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!');
+    } else if (activeGame === 'bluffing-number') {
+      showTopScreen('bluffing-number');
+      showBluffingSubView('ready');
+      bluffingReadyMessage.textContent = '라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!';
+    } else if (activeGame === 'liar-game') {
+      showTopScreen('liar-game');
+      showLiarSubView('ready');
+      liarReadyMessage.textContent = '라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!';
+    } else if (activeGame === 'traffic-light') {
+      showTopScreen('traffic-light');
+      showLightSubView('ready');
+    } else if (activeGame === 'indian-poker') {
+      showTopScreen('indian-poker');
+      showIndianSubView('ready');
+    } else if (activeGame === 'mbti-guess') {
+      showTopScreen('mbti-guess');
+      showMbtiSubView('ready');
+    } else {
+      showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
+    }
+    return;
+  }
+
+  if (res.status === 'game-select') {
+    showTopScreen('game-select');
+    renderMirrorParticipants(res.participants || []);
+    return;
+  }
+
+  showTopScreen('waiting');
+  waitingNickname.textContent = `${nickname}님`;
+  waitingMessage.textContent = '호스트가 게임을 시작하길 기다리는 중...';
+}
+
 joinRoomBtn.addEventListener('click', () => {
   const code = joinCodeInput.value.trim();
   const nickname = joinNicknameInput.value.trim();
@@ -563,48 +623,29 @@ joinRoomBtn.addEventListener('click', () => {
       joinError.textContent = res?.error || '입장에 실패했습니다.';
       return;
     }
-
-    joinedCode = code;
-    myNickname = nickname;
-
-    if (res.status === 'playing' && res.currentGame) {
-      activeGame = res.currentGame;
-      if (activeGame === 'truth-or-lie') {
-        showTolSpectatorWaiting('라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!');
-      } else if (activeGame === 'bluffing-number') {
-        showTopScreen('bluffing-number');
-        showBluffingSubView('ready');
-        bluffingReadyMessage.textContent = '라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!';
-      } else if (activeGame === 'liar-game') {
-        showTopScreen('liar-game');
-        showLiarSubView('ready');
-        liarReadyMessage.textContent = '라운드가 진행 중이에요. 다음 라운드부터 참여할 수 있어요!';
-      } else if (activeGame === 'traffic-light') {
-        showTopScreen('traffic-light');
-        showLightSubView('ready');
-      } else if (activeGame === 'indian-poker') {
-        showTopScreen('indian-poker');
-        showIndianSubView('ready');
-      } else if (activeGame === 'mbti-guess') {
-        showTopScreen('mbti-guess');
-        showMbtiSubView('ready');
-      } else {
-        showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
-      }
-      return;
-    }
-
-    if (res.status === 'game-select') {
-      showTopScreen('game-select');
-      renderMirrorParticipants(res.participants || []);
-      return;
-    }
-
-    showTopScreen('waiting');
-    waitingNickname.textContent = `${nickname}님`;
-    waitingMessage.textContent = '호스트가 게임을 시작하길 기다리는 중...';
+    persistJoinSession(code, nickname);
+    applyJoinResult(res, code, nickname);
   });
 });
+
+// 새로고침 시 이전 세션(방 코드+닉네임)이 남아있으면 조용히 자동 재입장 시도
+(function restoreParticipantSession() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(PARTICIPANT_SESSION_KEY) || 'null');
+  } catch (err) {
+    saved = null;
+  }
+  if (!saved?.code || !saved?.nickname) return;
+
+  socket.emit('player:join', { code: saved.code, nickname: saved.nickname }, (res) => {
+    if (!res?.success) {
+      clearJoinSession();
+      return;
+    }
+    applyJoinResult(res, saved.code, saved.nickname);
+  });
+})();
 
 socket.on('room:update', ({ participants }) => {
   renderMirrorParticipants(participants);
