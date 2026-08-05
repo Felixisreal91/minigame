@@ -72,6 +72,7 @@ const mbtiAnswerWait = document.getElementById('mbti-answer-wait');
 const mbtiAnswerWaitText = document.getElementById('mbti-answer-wait-text');
 const mbtiGuessing = document.getElementById('mbti-guessing');
 const mbtiGuessButtons = document.getElementById('mbti-guess-buttons');
+const mbtiGuessTargetName = document.getElementById('mbti-guess-target-name');
 const mbtiGuessTitle = document.getElementById('mbti-guess-title');
 const mbtiGuessOption0 = document.getElementById('mbti-guess-option-0');
 const mbtiGuessOption1 = document.getElementById('mbti-guess-option-1');
@@ -294,12 +295,13 @@ function showMbtiTargetFormRole(targetNickname) {
   showMbtiSubView('target-form');
 }
 
-function showMbtiGuessingRole({ title, options }) {
+function showMbtiGuessingRole({ title, options, targetNickname }) {
   mbtiHasGuessed = false;
   mbtiGuessButtons.classList.toggle('hidden', mbtiIsTarget);
   mbtiGuessDone.classList.add('hidden');
   mbtiGuessTargetWait.classList.toggle('hidden', !mbtiIsTarget);
   if (!mbtiIsTarget) {
+    mbtiGuessTargetName.textContent = `${targetNickname}님의 MBTI를 맞혀보세요`;
     mbtiGuessTitle.textContent = title;
     mbtiGuessOption0.textContent = options[0];
     mbtiGuessOption1.textContent = options[1];
@@ -898,10 +900,10 @@ mbtiAnswerSubmitBtn.addEventListener('click', () => {
   );
 });
 
-socket.on('game:mbti-stage-start', ({ stageIndex, title, options }) => {
+socket.on('game:mbti-stage-start', ({ stageIndex, title, options, targetNickname }) => {
   if (activeGame !== 'mbti-guess') return;
   mbtiStageIndex = stageIndex;
-  showMbtiGuessingRole({ title, options });
+  showMbtiGuessingRole({ title, options, targetNickname });
 });
 
 function submitMbtiGuess(guess) {

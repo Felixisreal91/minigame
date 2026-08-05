@@ -627,7 +627,7 @@ io.on('connection', (socket) => {
     gs.stageResolved = false;
     ack?.({ success: true });
 
-    io.to(code).emit('game:mbti-stage-start', { stageIndex: 0, ...MBTI_STAGES[0] });
+    io.to(code).emit('game:mbti-stage-start', { stageIndex: 0, targetNickname: gs.targetNickname, ...MBTI_STAGES[0] });
   });
 
   socket.on('player:submit-mbti-guess', ({ code, stageIndex, guess } = {}, ack) => {
@@ -681,7 +681,11 @@ io.on('connection', (socket) => {
     gs.stageIndex += 1;
     gs.guesses = [];
     gs.stageResolved = false;
-    io.to(code).emit('game:mbti-stage-start', { stageIndex: gs.stageIndex, ...MBTI_STAGES[gs.stageIndex] });
+    io.to(code).emit('game:mbti-stage-start', {
+      stageIndex: gs.stageIndex,
+      targetNickname: gs.targetNickname,
+      ...MBTI_STAGES[gs.stageIndex],
+    });
     ack?.({ success: true });
   });
 

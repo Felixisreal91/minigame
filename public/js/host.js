@@ -143,6 +143,7 @@ const mbtiHostTargetList = document.getElementById('mbti-host-target-list');
 const mbtiHostWaitingAnswer = document.getElementById('mbti-host-waiting-answer');
 const mbtiHostWaitingText = document.getElementById('mbti-host-waiting-text');
 const mbtiHostGuessing = document.getElementById('mbti-host-guessing');
+const mbtiHostTargetName = document.getElementById('mbti-host-target-name');
 const mbtiHostStageTitle = document.getElementById('mbti-host-stage-title');
 const mbtiHostGuessProgress = document.getElementById('mbti-host-guess-progress');
 const mbtiHostResult = document.getElementById('mbti-host-result');
@@ -946,8 +947,9 @@ socket.on('game:mbti-target-selected', ({ targetNickname }) => {
   showMbtiHostSubView('waiting-answer');
 });
 
-socket.on('game:mbti-stage-start', ({ title }) => {
+socket.on('game:mbti-stage-start', ({ title, targetNickname }) => {
   if (activeGame !== 'mbti-guess') return;
+  mbtiHostTargetName.textContent = `${targetNickname}님의 MBTI를 맞히는 중`;
   mbtiHostStageTitle.textContent = title;
   mbtiHostGuessProgress.textContent = `0/${participantCount - 1}명 응답`;
   showMbtiHostSubView('guessing');
