@@ -52,6 +52,22 @@ body::before {
   gap: 24px;
 }
 
+/* 모든 화면(section)은 자식 요소(헤더/카드/버튼 등)를 일정한 간격으로 세로 배치한다.
+   JS가 show/hide 토글에 쓰는 id 달린 서브뷰 div들도 같은 규칙을 재귀적으로 적용받도록
+   depth에 상관없이 잡아준다 (id 없는 .indian-choice-buttons 등 가로 배치 유틸 클래스는
+   자연히 이 선택자에 걸리지 않으므로 안전하다). */
+section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+section div[id]:not(.center-block):not(.qr-popover) {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 html.restoring .page {
   visibility: hidden;
 }
@@ -257,15 +273,6 @@ button.ghost {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-  margin-bottom: 24px;
-}
-
-#game-select-mirror-screen .card {
-  margin-bottom: 24px;
-}
-
-#landing-screen .card + .card {
-  margin-top: 24px;
 }
 
 #clear-cache-btn {
@@ -503,6 +510,9 @@ button.primary.light-btn--red {
   padding: 12px;
   border-radius: var(--radius);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .qr-popover-code {
