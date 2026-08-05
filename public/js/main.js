@@ -45,6 +45,7 @@ const nunchiRevealList = document.getElementById('nunchi-reveal-list');
 
 const lightReady = document.getElementById('light-ready');
 const lightPlaying = document.getElementById('light-playing');
+const lightIndicator = document.getElementById('light-indicator');
 const lightTapBtn = document.getElementById('light-tap-btn');
 const lightStatusText = document.getElementById('light-status-text');
 const lightResult = document.getElementById('light-result');
@@ -219,6 +220,7 @@ function startLightPlaying() {
   lightTapBtn.disabled = false;
   lightTapBtn.classList.remove('light-btn--red');
   lightTapBtn.classList.add('light-btn--green');
+  lightIndicator.textContent = '🟢';
   lightStatusText.textContent = '지금 누르면 탈락이에요!';
   showTopScreen('traffic-light');
   showLightSubView('playing');
@@ -728,6 +730,7 @@ socket.on('game:light-turned-red', () => {
   if (activeGame !== 'traffic-light' || lightHasTapped) return;
   lightTapBtn.classList.remove('light-btn--green');
   lightTapBtn.classList.add('light-btn--red');
+  lightIndicator.textContent = '🔴';
   lightStatusText.textContent = '지금 누르세요!';
 });
 
