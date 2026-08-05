@@ -36,6 +36,10 @@ body {
   gap: 24px;
 }
 
+html.restoring .page {
+  visibility: hidden;
+}
+
 header.hero {
   text-align: center;
   margin-top: 12px;

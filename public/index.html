@@ -7,6 +7,17 @@
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
+  <script>
+    // 저장된 참가 세션이 있으면 복원 여부가 결정되기 전까지 화면을 숨겨서
+    // 랜딩 화면이 잠깐 보였다 사라지는 깜빡임을 방지 (main.js가 복원 후 풀어줌)
+    try {
+      if (localStorage.getItem('minigame:participant')) {
+        document.documentElement.classList.add('restoring');
+      }
+    } catch (err) {
+      // localStorage 사용 불가 시 그냥 기본 동작(랜딩 화면 즉시 표시)
+    }
+  </script>
   <div class="page">
     <!-- 랜딩 화면 -->
     <section id="landing-screen">

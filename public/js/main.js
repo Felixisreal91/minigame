@@ -630,20 +630,31 @@ joinRoomBtn.addEventListener('click', () => {
 
 // 새로고침 시 이전 세션(방 코드+닉네임)이 남아있으면 조용히 자동 재입장 시도
 (function restoreParticipantSession() {
+  const revealPage = () => document.documentElement.classList.remove('restoring');
+
   let saved = null;
   try {
     saved = JSON.parse(localStorage.getItem(PARTICIPANT_SESSION_KEY) || 'null');
   } catch (err) {
     saved = null;
   }
-  if (!saved?.code || !saved?.nickname) return;
+  if (!saved?.code || !saved?.nickname) {
+    revealPage();
+    return;
+  }
+
+  // 서버 응답이 지연되거나 오지 않는 경우를 대비한 안전장치 (화면이 계속 숨겨진 채로 남지 않도록)
+  const safetyTimer = setTimeout(revealPage, 4000);
 
   socket.emit('player:join', { code: saved.code, nickname: saved.nickname }, (res) => {
+    clearTimeout(safetyTimer);
     if (!res?.success) {
       clearJoinSession();
+      revealPage();
       return;
     }
     applyJoinResult(res, saved.code, saved.nickname);
+    revealPage();
   });
 })();
 
