@@ -93,6 +93,11 @@
           <div class="game-card-title">MBTI 맞히기</div>
           <div class="game-card-desc">한 사람을 골라 MBTI를 단계별로 맞혀보세요!</div>
         </button>
+        <button class="game-card game-card--image-game" id="game-card-image-game">
+          <div class="game-card-emoji">🖼️</div>
+          <div class="game-card-title">이미지 게임</div>
+          <div class="game-card-desc">이 설명에 가장 어울리는 사람에게 투표하세요!</div>
+        </button>
       </div>
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -417,6 +422,46 @@
           <button id="mbti-host-restart-btn" class="primary">다시하기</button>
           <button id="mbti-host-back-btn" class="ghost">게임 목록으로</button>
         </div>
+      </div>
+    </section>
+
+    <!-- 게임: 이미지 게임 -->
+    <section id="image-host-screen" class="hidden">
+      <header class="hero">
+        <h1>이미지 게임</h1>
+        <p>이 설명에 가장 어울리는 사람에게 투표하세요!</p>
+      </header>
+
+      <div id="image-host-ready" class="center-block">
+        <div class="card" style="text-align:center;">
+          <p id="image-host-question" style="font-size:1.2rem; font-weight:700;"></p>
+        </div>
+        <button id="image-host-reroll-btn" class="ghost">다른 질문</button>
+        <button id="image-host-start-btn" class="primary">시작</button>
+      </div>
+
+      <div id="image-host-voting" class="center-block hidden">
+        <div class="card" style="text-align:center;">
+          <p id="image-host-voting-question" style="font-size:1.2rem; font-weight:700;"></p>
+        </div>
+        <p class="desc" id="image-host-vote-progress"></p>
+      </div>
+
+      <div id="image-host-result" class="hidden">
+        <div class="card" style="text-align:center;">
+          <p id="image-host-result-question" style="font-size:1.2rem; font-weight:700;"></p>
+        </div>
+        <div class="card">
+          <h2>득표 집계</h2>
+          <ul class="participant-list" id="image-host-tally-list"></ul>
+        </div>
+        <button id="image-host-toggle-detail-btn" class="ghost">참가자별 선택 보기</button>
+        <div class="card hidden" id="image-host-detail-card">
+          <h2>참가자별 선택</h2>
+          <ul class="participant-list" id="image-host-detail-list"></ul>
+        </div>
+        <button id="image-host-reset-btn" class="primary">다시하기</button>
+        <button id="image-host-back-btn" class="ghost">게임 목록으로</button>
       </div>
     </section>
   </div>

@@ -112,6 +112,11 @@
           <div class="game-card-title">MBTI 맞히기</div>
           <div class="game-card-desc">한 사람을 골라 MBTI를 단계별로 맞혀보세요!</div>
         </div>
+        <div class="game-card game-card-preview game-card--image-game">
+          <div class="game-card-emoji">🖼️</div>
+          <div class="game-card-title">이미지 게임</div>
+          <div class="game-card-desc">이 설명에 가장 어울리는 사람에게 투표하세요!</div>
+        </div>
       </div>
     </section>
 
@@ -495,6 +500,44 @@
           <ul class="participant-list" id="mbti-scoreboard-list"></ul>
         </div>
         <p class="desc" style="text-align:center;" id="mbti-result-wait-text"></p>
+      </div>
+    </section>
+
+    <!-- 게임 화면: 이미지 게임 -->
+    <section id="image-screen" class="hidden">
+      <header class="hero">
+        <h1>이미지 게임</h1>
+        <p>이 설명에 가장 어울리는 사람에게 투표하세요!</p>
+      </header>
+
+      <div id="image-ready" class="center-block">
+        <p class="desc">호스트가 질문을 고르는 중이에요</p>
+      </div>
+
+      <div id="image-voting" class="hidden">
+        <div class="card" style="text-align:center;">
+          <p id="image-voting-question" style="font-size:1.2rem; font-weight:700;"></p>
+        </div>
+
+        <div id="image-vote-buttons">
+          <div class="liar-vote-list" id="image-vote-list"></div>
+        </div>
+
+        <div id="image-vote-done" class="center-block hidden">
+          <div class="spinner"></div>
+          <p class="desc">투표 완료! 기다리는 중...</p>
+        </div>
+      </div>
+
+      <div id="image-result" class="hidden">
+        <div class="card" style="text-align:center;">
+          <p id="image-result-question" style="font-size:1.2rem; font-weight:700;"></p>
+        </div>
+        <div class="card">
+          <h2>득표 집계</h2>
+          <ul class="participant-list" id="image-tally-list"></ul>
+        </div>
+        <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
       </div>
     </section>
   </div>

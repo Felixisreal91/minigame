@@ -49,7 +49,7 @@ const httpServer = app.listen(process.env.PORT || 3000, () => {
 const io = new Server(httpServer);
 
 // code -> { hostSocketId, participants: [{id, nickname}], status: 'waiting' | 'game-select' | 'playing',
-//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game' | 'traffic-light' | 'indian-poker' | 'mbti-guess',
+//           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game' | 'traffic-light' | 'indian-poker' | 'mbti-guess' | 'image-game',
 //           gameState: null | (게임별로 모양이 다름, createInitialGameState 참고) }
 //   stop-at-7: { round, results: [{id, nickname, elapsedMs, diffMs}] }
 //   nunchi:    { round, results: [{id, nickname}] (배열 순서 = 누른 순서), expectedCount }
@@ -82,6 +82,11 @@ const io = new Server(httpServer);
 //     guesses: [{id,nickname,guess}] (축마다 초기화), expectedGuesses,
 //     roundParticipants: [{id,nickname}] (대상자 제외, 대상자 입력 시점 스냅샷), scoreboard: {participantId: 누적 정답 수},
 //   }
+//   image-game: {
+//     round, question (생성 즉시 무작위 배정), started (호스트 시작 전엔 리롤 가능),
+//     roundParticipants: [{id,nickname}] (투표 시작 시점 스냅샷, 본인 포함 전원이 투표 대상),
+//     votes: [{id,nickname,votedForId,votedForNickname}] (라운드마다 초기화), expectedVotes, resolved,
+//   }
 const rooms = new Map();
 
 const TARGET_MS = 7000;
@@ -92,6 +97,24 @@ const MBTI_STAGES = [
   { axisKey: 'ft', options: ['F', 'T'], title: 'F (감정) / T (사고)' },
   { axisKey: 'pj', options: ['P', 'J'], title: 'P (인식) / J (판단)' },
 ];
+
+const IMAGE_GAME_QUESTIONS = [
+  '가장 먼저 결혼할거 같은 사람?', '나이 들면 제일 꼰대일거 같은 사람?', '연애 제일 안해봤을거 같은 사람?',
+  '상견례 프리패스상인 사람?', '사기 제일 잘 당할것 같은 사람?', '카톡에 친구 제일 많을 거 같은 사람?',
+  '어릴 때 육아 난이도 최상이었을 거 같은 사람?', '가장 연애 많이 했을 거 같은 사람?', '첫인상이 제일 좋았던 사람?',
+  '첫인상이 가장 별로였던 사람?', '애인에게 집착할 거 같은 사람?', '불의를 보면 못 참을거 같은 사람?',
+  '내가 싸워서 이길 수 있을거 같은 사람?', '결혼식에 친구 많이 올 거 같은 사람?', '연애할 때 가장 잘해줄 거 같은 사람?',
+  '학창 시절 놀았을 거 같은 사람?', '무인도에 혼자 있어도 잘 지낼거 같은 사람?', '가장 자백이 심한 사람?',
+  '사랑하는 사람을 위해 모든 걸 다 할 수 있을거 같은 사람?', '여기서 좋아하는 사람이 있을거 같은 사람?',
+  '노래 잘할 거 같은 사람?', '학창 시절 선싱님한테 많이 혼났을거 같은 사람?', '제일 밝힐 거 같은 사람?',
+  '어릴 때 삥 뜯겼을 거 같은 사람?', '의외로 로맨티스트 일 것 같은 사람?', '제일 잘 속을거 같은 사람?',
+  '맨손으로 바퀴벌레 잘 잡을 것 같은 사람?', '가장 술 잘 마실 거 같은 사람?', '가장 똘끼가 심한 사람?',
+  '요리 못 할 거 같은 사람?',
+];
+
+function pickRandomImageQuestion() {
+  return IMAGE_GAME_QUESTIONS[Math.floor(Math.random() * IMAGE_GAME_QUESTIONS.length)];
+}
 
 const LIAR_WORD_BANK = {
   음식: ['김치', '라면', '삼겹살', '치킨', '피자', '초밥', '떡볶이', '짜장면', '아이스크림', '커피'],
@@ -191,6 +214,17 @@ function createInitialGameState(game) {
       expectedGuesses: 0,
       roundParticipants: [],
       scoreboard: {},
+    };
+  }
+  if (game === 'image-game') {
+    return {
+      round: 0,
+      question: pickRandomImageQuestion(),
+      started: false,
+      roundParticipants: [],
+      votes: [],
+      expectedVotes: 0,
+      resolved: false,
     };
   }
   return { round: 1, results: [] };
@@ -433,6 +467,31 @@ function maybeResolveMbtiStage(code, room) {
   resolveMbtiStage(code, room);
 }
 
+function resolveImageRound(code, room) {
+  const gs = room.gameState;
+  if (gs.resolved) return;
+  gs.resolved = true;
+
+  const voteCounts = new Map();
+  gs.votes.forEach((v) => voteCounts.set(v.votedForId, (voteCounts.get(v.votedForId) || 0) + 1));
+  const tally = gs.roundParticipants
+    .map((p) => ({ nickname: p.nickname, voteCount: voteCounts.get(p.id) || 0 }))
+    .sort((a, b) => b.voteCount - a.voteCount);
+
+  const payload = { round: gs.round, question: gs.question, tally };
+  io.to(code).emit('game:round-result', payload);
+  saveGameResult(code, 'image-game', gs.round, payload);
+
+  const detail = gs.votes.map((v) => ({ voterNickname: v.nickname, votedForNickname: v.votedForNickname }));
+  io.to(room.hostSocketId).emit('game:image-vote-detail', { round: gs.round, votes: detail });
+}
+
+function maybeResolveImageRound(code, room) {
+  const gs = room.gameState;
+  if (gs.resolved || gs.votes.length < gs.expectedVotes) return;
+  resolveImageRound(code, room);
+}
+
 function resolveLightRound(code, room, { reason, eliminatedNickname }) {
   const gs = room.gameState;
   if (gs.resolved) return;
@@ -543,7 +602,11 @@ io.on('connection', (socket) => {
       room.gameState.expectedCount = room.participants.length;
     }
     io.to(code).emit('game:launched', { game });
-    ack?.({ success: true });
+    if (game === 'image-game') {
+      ack?.({ success: true, question: room.gameState.question });
+    } else {
+      ack?.({ success: true });
+    }
   });
 
   socket.on('host:select-range', ({ code, max } = {}, ack) => {
@@ -666,6 +729,39 @@ io.on('connection', (socket) => {
     maybeResolveMbtiStage(code, room);
   });
 
+  socket.on('player:submit-image-vote', ({ code, round, votedForId } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.status !== 'playing' || room.currentGame !== 'image-game' || !room.gameState) {
+      ack?.({ success: false, error: '진행 중인 라운드가 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    if (gs.resolved || round !== gs.round) {
+      ack?.({ success: false, error: '이미 종료된 라운드입니다.' });
+      return;
+    }
+    const target = gs.roundParticipants.find((p) => p.id === votedForId);
+    if (!target) {
+      ack?.({ success: false, error: '올바르지 않은 투표 대상입니다.' });
+      return;
+    }
+    if (gs.votes.some((v) => v.id === socket.id)) {
+      ack?.({ success: false, error: '이미 투표했습니다.' });
+      return;
+    }
+
+    const nickname = socket.data.nickname || '참가자';
+    gs.votes.push({ id: socket.id, nickname, votedForId, votedForNickname: target.nickname });
+    ack?.({ success: true });
+
+    io.to(code).emit('game:image-vote-progress', {
+      votedCount: gs.votes.length,
+      totalParticipants: gs.expectedVotes,
+    });
+
+    maybeResolveImageRound(code, room);
+  });
+
   socket.on('host:next-mbti-stage', ({ code } = {}, ack) => {
     const room = rooms.get(code);
     if (!room || room.hostSocketId !== socket.id || room.currentGame !== 'mbti-guess' || !room.gameState) {
@@ -687,6 +783,21 @@ io.on('connection', (socket) => {
       ...MBTI_STAGES[gs.stageIndex],
     });
     ack?.({ success: true });
+  });
+
+  socket.on('host:reroll-image-question', ({ code } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.hostSocketId !== socket.id || room.currentGame !== 'image-game' || !room.gameState) {
+      ack?.({ success: false, error: '질문을 바꿀 수 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    if (gs.started) {
+      ack?.({ success: false, error: '이미 시작된 라운드입니다.' });
+      return;
+    }
+    gs.question = pickRandomImageQuestion();
+    ack?.({ success: true, question: gs.question });
   });
 
   socket.on('host:round-start', ({ code } = {}, ack) => {
@@ -799,6 +910,29 @@ io.on('connection', (socket) => {
         io.to(me.id).emit('game:indian-poker-round-start', { round: gs.round, others });
       });
       io.to(room.hostSocketId).emit('game:round-start', { round: gs.round });
+
+      ack?.({ success: true });
+      return;
+    }
+
+    if (room.currentGame === 'image-game') {
+      const gs = room.gameState;
+      if (room.participants.length < 2) {
+        ack?.({ success: false, error: '참가자가 2명 이상이어야 시작할 수 있습니다.' });
+        return;
+      }
+      gs.started = true;
+      gs.round += 1;
+      gs.roundParticipants = room.participants.map((p) => ({ id: p.id, nickname: p.nickname }));
+      gs.votes = [];
+      gs.expectedVotes = gs.roundParticipants.length;
+      gs.resolved = false;
+
+      io.to(code).emit('game:image-round-start', {
+        round: gs.round,
+        question: gs.question,
+        participants: gs.roundParticipants,
+      });
 
       ack?.({ success: true });
       return;
@@ -1154,6 +1288,8 @@ io.on('connection', (socket) => {
       room.gameState = createInitialGameState('indian-poker');
     } else if (room.currentGame === 'mbti-guess') {
       room.gameState = createInitialGameState('mbti-guess');
+    } else if (room.currentGame === 'image-game') {
+      room.gameState = createInitialGameState('image-game');
     } else {
       if (room.currentGame === 'stop-at-7' && room.gameState.results.length > 0) {
         saveGameResult(code, 'stop-at-7', room.gameState.round, { results: sortedResults(room.gameState) });
@@ -1161,7 +1297,10 @@ io.on('connection', (socket) => {
       room.gameState.round += 1;
       room.gameState.results = [];
     }
-    io.to(code).emit('game:round-reset', {});
+    io.to(code).emit(
+      'game:round-reset',
+      room.currentGame === 'image-game' ? { question: room.gameState.question } : {}
+    );
     ack?.({ success: true });
   });
 
@@ -1308,6 +1447,18 @@ io.on('connection', (socket) => {
               gs.expectedGuesses = Math.max(0, gs.expectedGuesses - 1);
             }
             maybeResolveMbtiStage(code, room);
+          }
+        }
+      } else if (room.currentGame === 'image-game' && room.status === 'playing') {
+        const gs = room.gameState;
+        if (gs.started && !gs.resolved) {
+          const wasInRound = gs.roundParticipants.some((p) => p.id === socket.id);
+          if (wasInRound) {
+            const hadVoted = gs.votes.some((v) => v.id === socket.id);
+            if (!hadVoted) {
+              gs.expectedVotes = Math.max(0, gs.expectedVotes - 1);
+            }
+            maybeResolveImageRound(code, room);
           }
         }
       }

@@ -86,6 +86,17 @@ const mbtiResultList = document.getElementById('mbti-result-list');
 const mbtiScoreboardList = document.getElementById('mbti-scoreboard-list');
 const mbtiResultWaitText = document.getElementById('mbti-result-wait-text');
 
+const imageScreen = document.getElementById('image-screen');
+const imageReady = document.getElementById('image-ready');
+const imageVoting = document.getElementById('image-voting');
+const imageVotingQuestion = document.getElementById('image-voting-question');
+const imageVoteButtons = document.getElementById('image-vote-buttons');
+const imageVoteList = document.getElementById('image-vote-list');
+const imageVoteDone = document.getElementById('image-vote-done');
+const imageResult = document.getElementById('image-result');
+const imageResultQuestion = document.getElementById('image-result-question');
+const imageTallyList = document.getElementById('image-tally-list');
+
 const tolScreen = document.getElementById('tol-screen');
 const tolWriting = document.getElementById('tol-writing');
 const tolWriteForm = document.getElementById('tol-write-form');
@@ -176,6 +187,8 @@ let mbtiIsTarget = false;
 let mbtiAnswerSelections = {};
 let mbtiStageIndex = null;
 let mbtiHasGuessed = false;
+let imageCurrentRound = null;
+let imageHasVoted = false;
 
 // QR 스캔으로 접속한 경우 코드 자동 채움
 const params = new URLSearchParams(location.search);
@@ -207,6 +220,7 @@ function showTopScreen(screen) {
   lightScreen.classList.toggle('hidden', screen !== 'traffic-light');
   indianScreen.classList.toggle('hidden', screen !== 'indian-poker');
   mbtiScreen.classList.toggle('hidden', screen !== 'mbti-guess');
+  imageScreen.classList.toggle('hidden', screen !== 'image-game');
 }
 
 function showLightSubView(view) {
@@ -333,6 +347,52 @@ function renderMbtiResult({ axisKey, correctLetter, targetNickname, results, sco
     ? '호스트가 다음 라운드를 준비하고 있어요'
     : '호스트가 다음 단계를 준비하고 있어요';
   showMbtiSubView('result');
+}
+
+function showImageSubView(view) {
+  imageReady.classList.toggle('hidden', view !== 'ready');
+  imageVoting.classList.toggle('hidden', view !== 'voting');
+  imageResult.classList.toggle('hidden', view !== 'result');
+}
+
+function renderImageVoteList(participants) {
+  imageVoteList.innerHTML = '';
+  participants.forEach((p) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ghost liar-vote-btn';
+    btn.textContent = p.nickname;
+    btn.addEventListener('click', () => submitImageVote(p.id));
+    imageVoteList.appendChild(btn);
+  });
+}
+
+function submitImageVote(votedForId) {
+  if (imageHasVoted) return;
+  imageHasVoted = true;
+  Array.from(imageVoteList.children).forEach((b) => {
+    b.disabled = true;
+  });
+  socket.emit('player:submit-image-vote', { code: joinedCode, round: imageCurrentRound, votedForId }, (res) => {
+    if (res?.success) {
+      imageVoteButtons.classList.add('hidden');
+      imageVoteDone.classList.remove('hidden');
+    } else {
+      imageHasVoted = false;
+      Array.from(imageVoteList.children).forEach((b) => {
+        b.disabled = false;
+      });
+      alert(res?.error || '투표에 실패했습니다.');
+    }
+  });
+}
+
+function renderImageResult({ question, tally }) {
+  imageResultQuestion.textContent = question;
+  imageTallyList.innerHTML = tally
+    .map((t, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(t.nickname)} — ${t.voteCount}표</li>`)
+    .join('');
+  showImageSubView('result');
 }
 
 function showLiarSubView(view) {
@@ -587,6 +647,9 @@ function applyJoinResult(res, code, nickname) {
     } else if (activeGame === 'mbti-guess') {
       showTopScreen('mbti-guess');
       showMbtiSubView('ready');
+    } else if (activeGame === 'image-game') {
+      showTopScreen('image-game');
+      showImageSubView('ready');
     } else {
       showActiveGameReady('라운드 대기 중이에요. 다음 라운드에 참여할 수 있어요!');
     }
@@ -694,6 +757,9 @@ socket.on('game:launched', ({ game }) => {
   } else if (game === 'mbti-guess') {
     showTopScreen('mbti-guess');
     showMbtiSubView('ready');
+  } else if (game === 'image-game') {
+    showTopScreen('image-game');
+    showImageSubView('ready');
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -760,6 +826,9 @@ socket.on('game:round-reset', () => {
   } else if (activeGame === 'mbti-guess') {
     showTopScreen('mbti-guess');
     showMbtiSubView('ready');
+  } else if (activeGame === 'image-game') {
+    showTopScreen('image-game');
+    showImageSubView('ready');
   } else {
     showActiveGameReady('호스트가 시작하면 카운트다운이 시작돼요');
   }
@@ -985,6 +1054,26 @@ mbtiGuessOption1.addEventListener('click', () => submitMbtiGuess(mbtiGuessOption
 socket.on('game:round-result', (payload) => {
   if (activeGame !== 'mbti-guess') return;
   renderMbtiResult(payload);
+});
+
+// ---- 이미지 게임 ----
+
+socket.on('game:image-round-start', ({ round, question, participants }) => {
+  if (!joinedCode) return;
+  activeGame = 'image-game';
+  imageCurrentRound = round;
+  imageHasVoted = false;
+  imageVoteButtons.classList.remove('hidden');
+  imageVoteDone.classList.add('hidden');
+  imageVotingQuestion.textContent = question;
+  renderImageVoteList(participants);
+  showTopScreen('image-game');
+  showImageSubView('voting');
+});
+
+socket.on('game:round-result', (payload) => {
+  if (activeGame !== 'image-game') return;
+  renderImageResult(payload);
 });
 
 function renderNunchiReveal(results, eliminated) {

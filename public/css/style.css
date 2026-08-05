@@ -336,6 +336,10 @@ button.ghost {
   border-left-color: #00b8d9;
 }
 
+.game-card--image-game {
+  border-left-color: #27ae60;
+}
+
 .game-card-preview {
   cursor: default;
 }
@@ -374,6 +378,10 @@ button.ghost {
 
 .game-card-preview.game-card--mbti-guess:hover {
   border-left-color: #00b8d9;
+}
+
+.game-card-preview.game-card--image-game:hover {
+  border-left-color: #27ae60;
 }
 
 .game-card-emoji {
