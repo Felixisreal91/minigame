@@ -188,7 +188,7 @@ if (!code) {
 }
 
 roomCodeEl.textContent = code;
-hostQrPopoverCode.textContent = code;
+hostQrPopoverCode.textContent = `코드: ${code}`;
 
 hostCodeBadge.addEventListener('click', () => {
   hostQrPopover.classList.toggle('hidden');
