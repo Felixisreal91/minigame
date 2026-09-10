@@ -777,6 +777,10 @@ io.on('connection', (socket) => {
     gs.stageIndex += 1;
     gs.guesses = [];
     gs.stageResolved = false;
+    // 이전 단계 결과를 보는 동안 참가자가 나갔을 수 있으므로, 현재 접속 중인 인원 기준으로 다시 계산한다
+    gs.expectedGuesses = gs.roundParticipants.filter((p) =>
+      room.participants.some((rp) => rp.id === p.id)
+    ).length;
     io.to(code).emit('game:mbti-stage-start', {
       stageIndex: gs.stageIndex,
       targetNickname: gs.targetNickname,
