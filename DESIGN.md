@@ -41,3 +41,9 @@ QR 코드는 인식률을 위해 `#0f380f` / `#e0f8d0`로 밝기 차이를 크�
 ```
 python3 tools/pixel-icons.py [미리보기.png]
 ```
+
+## 랜딩 장면
+
+랜딩 화면 제목 아래 `.hero-scene`에서 도트 캐릭터가 달리며 선인장을 뛰어넘는다(장식, `aria-hidden`).
+스프라이트 시트(`public/assets/sprites/`)도 같은 스크립트의 `SPRITES`에서 생성한다.
+움직임은 CSS `steps()`로 끊고, `prefers-reduced-motion`이면 멈춘 장면만 보인다.

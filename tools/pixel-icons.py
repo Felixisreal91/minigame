@@ -1,4 +1,5 @@
 """도트 아이콘 생성기: 아래 ASCII 도트 그림을 public/assets/icons/*.svg 로 변환한다.
+SPRITES는 여러 프레임을 가로로 이어 붙인 시트로 public/assets/sprites/*.svg 에 쓴다.
 
 사용법: python3 tools/pixel-icons.py [미리보기.png]
   . = 투명, a~d = 게임보이 4색(진함 -> 밝음), r = 빨강, g = 초록 (신호등 전용)
@@ -182,6 +183,88 @@ ICONS = {
     ],
 }
 
+# 랜딩 화면 도트 장면용. 프레임마다 16x16이고, 시트에 왼쪽부터 순서대로 놓인다.
+SPRITES = {
+    'runner': [
+        [
+            '................',
+            '.....aaaaa......',
+            '....abbbbba.....',
+            '...abbbbbbbaaa..',
+            '...aaaaaaaaaaaa.',
+            '...addddddda....',
+            '...adddddada....',
+            '...addddddda....',
+            '....aaaaaaa.....',
+            '...abbbbbbba....',
+            '..adabbbbbada...',
+            '...aaabbbbaa....',
+            '....abbaabba....',
+            '...abba..abba...',
+            '..aaa......aaa..',
+            '................',
+        ],
+        [
+            '................',
+            '................',
+            '.....aaaaa......',
+            '....abbbbba.....',
+            '...abbbbbbbaaa..',
+            '...aaaaaaaaaaaa.',
+            '...addddddda....',
+            '...adddddada....',
+            '...addddddda....',
+            '....aaaaaaa.....',
+            '...abbbbbbba....',
+            '...adbbbbbda....',
+            '....aabbbaa.....',
+            '.....abbba......',
+            '.....aaaaaa.....',
+            '................',
+        ],
+    ],
+    'cactus': [
+        [
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+            '......aa........',
+            '.....abba..aa...',
+            '.aa..abba.abba..',
+            'abba.abba.abba..',
+            'abbaaabbaaabba..',
+            '.abbbbbbbbbba...',
+            '...abbbbbba.....',
+            '...aaaaaaaa.....',
+        ],
+    ],
+    'cloud': [
+        [
+            '................',
+            '.....bbbb.......',
+            '....bddddb......',
+            '..bbddddddbbb...',
+            '.bdddddddddddb..',
+            'bddddddddddddddb',
+            '.bbbbbbbbbbbbbb.',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+        ],
+    ],
+}
+
 
 def normalize(rows):
     # 실수로 들어간 공백/전각문자는 투명으로 처리하고 16칸에 맞춘다
@@ -193,6 +276,7 @@ def normalize(rows):
 
 
 def to_svg(rows):
+    width = len(rows[0])
     rects = []
     for y, row in enumerate(rows):
         x = 0
@@ -207,7 +291,7 @@ def to_svg(rows):
             rects.append(f'<rect x="{x}" y="{y}" width="{run}" height="1" fill="{PALETTE[ch]}"/>')
             x += run
     return (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="64" height="64" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} 16" width="{width * 4}" height="64" '
         'shape-rendering="crispEdges">' + ''.join(rects) + '</svg>\n'
     )
 
@@ -245,8 +329,18 @@ def main():
     for name, rows in icons.items():
         with open(os.path.join(root, f'{name}.svg'), 'w') as f:
             f.write(to_svg(rows))
+    sprite_root = os.path.join(root, '..', 'sprites')
+    os.makedirs(sprite_root, exist_ok=True)
+    preview = dict(icons)
+    for name, frames in SPRITES.items():
+        frames = [normalize(rows) for rows in frames]
+        sheet = [''.join(rows) for rows in zip(*frames)]
+        with open(os.path.join(sprite_root, f'{name}.svg'), 'w') as f:
+            f.write(to_svg(sheet))
+        for i, rows in enumerate(frames):
+            preview[f'{name}-{i}'] = rows
     if len(sys.argv) > 1:
-        write_preview(sys.argv[1], icons)
+        write_preview(sys.argv[1], preview)
 
 
 if __name__ == '__main__':

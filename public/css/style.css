@@ -306,6 +306,127 @@ header.hero::after {
   background-image: repeating-linear-gradient(90deg, var(--gb-0) 0 4px, transparent 4px 8px);
 }
 
+/* 랜딩 화면 도트 장면: 캐릭터는 제자리에서 뛰고 땅·선인장·구름이 왼쪽으로 흘러간다.
+   선인장과 땅은 같은 속도(120cqw / 3.6s)로 움직이고, 선인장이 캐릭터 위치를 지나는
+   구간(좁은 폰 기준 주기의 약 50~85%)에 맞춰 점프한다. 움직임은 steps()로 끊어 저프레임 느낌을 낸다. */
+.hero-scene {
+  --sprite: 48px; /* 16칸 도트 x 3 */
+  position: relative;
+  height: 104px;
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.hero-scene::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 9px;
+  border-top: 3px solid var(--gb-0);
+  background: repeating-linear-gradient(90deg, var(--gb-1) 0 2cqw, transparent 2cqw 12cqw) 0 3px / 100% 3px repeat-x;
+  animation: scene-ground 0.36s steps(9) infinite;
+}
+
+.hero-scene span {
+  position: absolute;
+  width: var(--sprite);
+  height: var(--sprite);
+  background-repeat: no-repeat;
+  background-size: var(--sprite) var(--sprite);
+  image-rendering: pixelated;
+}
+
+.hero-scene .scene-runner {
+  left: 18%;
+  bottom: 6px;
+  background-image: url('/assets/sprites/runner.svg');
+  background-size: calc(var(--sprite) * 2) var(--sprite);
+  animation:
+    scene-run 0.3s steps(2) infinite,
+    scene-jump 3.6s steps(3) infinite;
+}
+
+.scene-cactus {
+  bottom: 9px;
+  background-image: url('/assets/sprites/cactus.svg');
+  animation: scene-scroll 3.6s steps(90) infinite;
+}
+
+.scene-cloud {
+  top: 4px;
+  background-image: url('/assets/sprites/cloud.svg');
+  animation: scene-scroll 14s steps(70) infinite;
+  animation-delay: -5s;
+}
+
+.scene-cloud--far {
+  top: 20px;
+  opacity: 0.6;
+  animation-duration: 23s;
+  animation-delay: -16s;
+}
+
+@keyframes scene-ground {
+  to {
+    background-position: -12cqw 3px;
+  }
+}
+
+@keyframes scene-run {
+  to {
+    background-position: calc(var(--sprite) * -2) 0;
+  }
+}
+
+@keyframes scene-scroll {
+  from {
+    left: 100%;
+  }
+  to {
+    left: -20%;
+  }
+}
+
+@keyframes scene-jump {
+  0%,
+  46%,
+  88%,
+  100% {
+    transform: translateY(0);
+  }
+  51% {
+    transform: translateY(-27px);
+  }
+  57%,
+  77% {
+    transform: translateY(-39px);
+  }
+  83% {
+    transform: translateY(-27px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-scene *,
+  .hero-scene::after {
+    animation: none;
+  }
+
+  .scene-cactus {
+    left: 62%;
+  }
+
+  .scene-cloud {
+    left: 30%;
+  }
+
+  .scene-cloud--far {
+    left: 72%;
+  }
+}
+
 /* 픽셀 테두리: 상하좌우로만 그림자를 뻗어서 모서리가 비는 계단 모양 */
 .card,
 input[type="text"],
