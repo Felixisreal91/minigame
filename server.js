@@ -51,8 +51,9 @@ const io = new Server(httpServer);
 // code -> { hostSocketId, participants: [{id, nickname}], status: 'waiting' | 'game-select' | 'playing',
 //           currentGame: null | 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game' | 'traffic-light' | 'indian-poker' | 'mbti-guess' | 'image-game',
 //           gameState: null | (게임별로 모양이 다름, createInitialGameState 참고) }
-//   stop-at-7: { round, results: [{id, nickname, elapsedMs, diffMs}] }
-//   nunchi:    { round, results: [{id, nickname}] (배열 순서 = 누른 순서), expectedCount }
+//   stop-at-7: { round, results: [{id, nickname, elapsedMs, diffMs}], expectedCount, ended }
+//   nunchi:    { round, results: [{id, nickname}] (배열 순서 = 누른 순서), expectedCount, ended }
+//     (expectedCount/roundParticipants는 라운드 시작 시 설정, ended는 결과 공개 후 true)
 //   truth-or-lie: {
 //     phase: 'writing' | 'writing-complete' | 'guessing' | 'result',
 //     sentences: [{id, nickname, sentence, isTrue}], expectedCount,
@@ -61,7 +62,7 @@ const io = new Server(httpServer);
 //   }
 //   bluffing-number: {
 //     range: null | {min:1, max}, round, alive: [id,...], picks: [{id,nickname,number}] (라운드마다 초기화),
-//     expectedPicks, eliminatedLog: [{nickname, round}] (누적), gameOver,
+//     expectedPicks, eliminatedLog: [{nickname, round}] (누적), gameOver, resolved (현재 라운드 정산 여부),
 //   }
 //   liar-game: {
 //     revealCategoryToLiar, round, category, word, liarId, liarNickname,
@@ -69,7 +70,8 @@ const io = new Server(httpServer);
 //     votes: [{id, nickname, votedForId, votedForNickname}] (라운드마다 초기화), expectedVotes,
 //   }
 //   traffic-light: {
-//     round, lightState: 'green'|'red', redTurnedAt, taps: [{id,nickname,tappedAt}] (라운드마다 초기화),
+//     round, lightState: 'green'|'red', redTurnedAt, taps: [{id,nickname,tappedAt,early}] (라운드마다 초기화),
+//     roundParticipants: [{id,nickname}] (라운드 시작 시점 스냅샷),
 //     expectedTaps, resolved, redTimeoutHandle (서버 내부용, 클라이언트에 노출 안 됨),
 //   }
 //   indian-poker: {
@@ -166,6 +168,7 @@ function createInitialGameState(game) {
       expectedPicks: 0,
       eliminatedLog: [],
       gameOver: false,
+      resolved: false,
     };
   }
   if (game === 'liar-game') {
@@ -187,6 +190,7 @@ function createInitialGameState(game) {
       lightState: 'green',
       redTurnedAt: null,
       taps: [],
+      roundParticipants: [],
       expectedTaps: 0,
       resolved: false,
       redTimeoutHandle: null,
@@ -251,14 +255,40 @@ function broadcastRoomUpdate(code) {
   io.to(code).emit('room:update', { participants: room.participants });
 }
 
+// 라운드 시작 시점 참가자 중 아직 방에 있고, 응답(entries)하지 않은 사람의 닉네임
+function missingNicknames(room, roundParticipants, entries) {
+  return (roundParticipants || [])
+    .filter((p) => room.participants.some((rp) => rp.id === p.id) && !entries.some((e) => e.id === p.id))
+    .map((p) => p.nickname);
+}
+
 const NUNCHI_COLLISION_WINDOW_MS = 300;
 
 function maybeEndNunchiRound(code, room) {
-  const { expectedCount, results } = room.gameState;
-  if (typeof expectedCount !== 'number' || expectedCount <= 0 || results.length < expectedCount) return;
+  const { expectedCount, results, ended } = room.gameState;
+  if (ended || typeof expectedCount !== 'number' || expectedCount <= 0 || results.length < expectedCount) return;
+  endNunchiRound(code, room);
+}
+
+function endNunchiRound(code, room) {
+  const gs = room.gameState;
+  gs.ended = true;
+  const { results } = gs;
+  // 호스트가 강제로 끝낸 경우 아직 안 누른 참가자는 맨 뒤(=가장 늦게 누른 것)로 취급해 탈락시킨다
+  const notPressed = missingNicknames(room, gs.roundParticipants, results);
+
+  if (results.length === 0) {
+    const ranked = notPressed.map((nickname) => ({ nickname, order: '-' }));
+    io.to(code).emit('game:round-end', { results: ranked, eliminated: notPressed });
+    saveGameResult(code, 'nunchi', gs.round, { results: ranked, eliminated: notPressed });
+    return;
+  }
 
   // results는 서버가 이벤트를 받은 순서(=pressedAt 오름차순)로 이미 쌓여있음
-  const ranked = results.map((r, i) => ({ nickname: r.nickname, order: i + 1 }));
+  const ranked = [
+    ...results.map((r, i) => ({ nickname: r.nickname, order: i + 1 })),
+    ...notPressed.map((nickname) => ({ nickname, order: '-' })),
+  ];
 
   // 전후 0.3초 이내로 연속해서 누른 사람들을 하나의 클러스터로 묶는다
   const clusters = [[results[0]]];
@@ -270,13 +300,11 @@ function maybeEndNunchiRound(code, room) {
     }
   }
   const collisionClusters = clusters.filter((c) => c.length > 1);
-  const eliminated =
-    collisionClusters.length > 0
-      ? collisionClusters.flat().map((r) => r.nickname)
-      : [results[results.length - 1].nickname];
+  const losers = [...collisionClusters.flat().map((r) => r.nickname), ...notPressed];
+  const eliminated = losers.length > 0 ? losers : [results[results.length - 1].nickname];
 
   io.to(code).emit('game:round-end', { results: ranked, eliminated });
-  saveGameResult(code, 'nunchi', room.gameState.round, { results: ranked, eliminated });
+  saveGameResult(code, 'nunchi', gs.round, { results: ranked, eliminated });
 }
 
 function maybeCompleteWriting(code, room) {
@@ -320,9 +348,10 @@ function buildBluffingSummary(room, gs) {
   return { survivors, eliminatedLog };
 }
 
-function resolveBluffingRound(code, room) {
+function resolveBluffingRound(code, room, { force = false } = {}) {
   const gs = room.gameState;
-  if (gs.gameOver) return;
+  if (gs.gameOver || gs.resolved) return;
+  gs.resolved = true;
 
   const byNumber = new Map();
   for (const p of gs.picks) {
@@ -339,6 +368,16 @@ function resolveBluffingRound(code, room) {
     eliminatedThisRound = gs.picks.filter((p) => p.number === minNumber);
   } else {
     eliminatedThisRound = [];
+  }
+  if (force) {
+    // 호스트가 강제로 끝낸 경우 숫자를 고르지 않은 생존자도 탈락
+    const pickedIds = new Set(gs.picks.map((p) => p.id));
+    gs.alive
+      .filter((id) => !pickedIds.has(id))
+      .forEach((id) => {
+        const p = room.participants.find((rp) => rp.id === id);
+        eliminatedThisRound.push({ id, nickname: p ? p.nickname : '참가자', number: null });
+      });
   }
 
   const eliminatedIds = new Set(eliminatedThisRound.map((p) => p.id));
@@ -364,7 +403,7 @@ function resolveBluffingRound(code, room) {
 
 function maybeResolveBluffingRound(code, room) {
   const gs = room.gameState;
-  if (gs.gameOver) return;
+  if (gs.gameOver || gs.resolved || gs.round === 0) return;
   if (gs.picks.length < gs.expectedPicks) return;
   resolveBluffingRound(code, room);
 }
@@ -492,21 +531,30 @@ function maybeResolveImageRound(code, room) {
   resolveImageRound(code, room);
 }
 
-function resolveLightRound(code, room, { reason, eliminatedNickname }) {
+function resolveLightRound(code, room) {
   const gs = room.gameState;
   if (gs.resolved) return;
   gs.resolved = true;
   clearLightTimeout(gs);
 
-  let payload;
-  if (reason === 'early') {
-    payload = { round: gs.round, reason: 'early', eliminatedNickname, taps: [] };
+  const earlyNicknames = gs.taps.filter((t) => t.early).map((t) => t.nickname);
+  // 호스트가 강제로 끝낸 경우에만 생김: 라운드 중 아무것도 안 누른 참가자
+  const missedNicknames = missingNicknames(room, gs.roundParticipants, gs.taps);
+  const sorted = gs.taps.filter((t) => !t.early).sort((a, b) => a.tappedAt - b.tappedAt);
+  const taps = sorted.map((t) => ({ nickname: t.nickname, reactionMs: t.tappedAt - gs.redTurnedAt }));
+
+  // 초록불에 누른 사람(반칙)과 안 누른 사람이 있으면 그들이 탈락, 없으면 빨간불에 가장 늦게 누른 사람이 탈락
+  let reason;
+  let eliminatedNicknames;
+  if (earlyNicknames.length > 0 || missedNicknames.length > 0) {
+    reason = earlyNicknames.length > 0 ? 'early' : 'missed';
+    eliminatedNicknames = [...earlyNicknames, ...missedNicknames];
   } else {
-    const sorted = [...gs.taps].sort((a, b) => a.tappedAt - b.tappedAt);
-    const last = sorted[sorted.length - 1];
-    const taps = sorted.map((t) => ({ nickname: t.nickname, reactionMs: t.tappedAt - gs.redTurnedAt }));
-    payload = { round: gs.round, reason: 'last', eliminatedNickname: last.nickname, taps };
+    reason = 'last';
+    eliminatedNicknames = sorted.length > 0 ? [sorted[sorted.length - 1].nickname] : [];
   }
+
+  const payload = { round: gs.round, reason, eliminatedNicknames, earlyNicknames, missedNicknames, taps };
 
   io.to(code).emit('game:round-result', payload);
   saveGameResult(code, 'traffic-light', gs.round, payload);
@@ -514,9 +562,9 @@ function resolveLightRound(code, room, { reason, eliminatedNickname }) {
 
 function maybeResolveLightRound(code, room) {
   const gs = room.gameState;
-  if (gs.resolved) return;
+  if (gs.resolved || gs.round === 0) return;
   if (gs.taps.length < gs.expectedTaps) return;
-  resolveLightRound(code, room, { reason: 'last' });
+  resolveLightRound(code, room);
 }
 
 io.on('connection', (socket) => {
@@ -827,6 +875,7 @@ io.on('connection', (socket) => {
       gs.round += 1;
       gs.picks = [];
       gs.expectedPicks = gs.alive.length;
+      gs.resolved = false;
       io.to(code).emit('game:round-start', { round: gs.round, min: gs.range.min, max: gs.range.max, alive: gs.alive });
       ack?.({ success: true });
       return;
@@ -871,6 +920,7 @@ io.on('connection', (socket) => {
       gs.lightState = 'green';
       gs.redTurnedAt = null;
       gs.taps = [];
+      gs.roundParticipants = room.participants.map((p) => ({ id: p.id, nickname: p.nickname }));
       gs.expectedTaps = room.participants.length;
       gs.resolved = false;
 
@@ -943,6 +993,8 @@ io.on('connection', (socket) => {
     }
 
     room.gameState.expectedCount = room.participants.length;
+    room.gameState.roundParticipants = room.participants.map((p) => ({ id: p.id, nickname: p.nickname }));
+    room.gameState.ended = false;
     io.to(code).emit('game:round-start', { round: room.gameState.round });
     ack?.({ success: true });
   });
@@ -953,7 +1005,7 @@ io.on('connection', (socket) => {
       ack?.({ success: false, error: '진행 중인 라운드가 없습니다.' });
       return;
     }
-    if (round !== room.gameState.round) {
+    if (round !== room.gameState.round || room.gameState.ended) {
       ack?.({ success: false, error: '이미 종료된 라운드입니다.' });
       return;
     }
@@ -984,7 +1036,7 @@ io.on('connection', (socket) => {
       ack?.({ success: false, error: '진행 중인 라운드가 없습니다.' });
       return;
     }
-    if (round !== room.gameState.round) {
+    if (round !== room.gameState.round || room.gameState.ended) {
       ack?.({ success: false, error: '이미 종료된 라운드입니다.' });
       return;
     }
@@ -1014,7 +1066,7 @@ io.on('connection', (socket) => {
       return;
     }
     const gs = room.gameState;
-    if (!gs.range || round !== gs.round) {
+    if (!gs.range || gs.resolved || round !== gs.round) {
       ack?.({ success: false, error: '이미 종료된 라운드입니다.' });
       return;
     }
@@ -1220,15 +1272,10 @@ io.on('connection', (socket) => {
     }
 
     const nickname = socket.data.nickname || '참가자';
-
-    if (gs.lightState === 'green') {
-      ack?.({ success: true });
-      resolveLightRound(code, room, { reason: 'early', eliminatedNickname: nickname });
-      return;
-    }
-
-    gs.taps.push({ id: socket.id, nickname, tappedAt: Date.now() });
-    ack?.({ success: true });
+    // 초록불에 눌러도 라운드는 끝나지 않고, 모든 참가자가 누를 때까지 계속된다
+    const early = gs.lightState === 'green';
+    gs.taps.push({ id: socket.id, nickname, tappedAt: Date.now(), early });
+    ack?.({ success: true, early });
 
     io.to(code).emit('game:tap-progress', {
       tappedCount: gs.taps.length,
@@ -1300,11 +1347,72 @@ io.on('connection', (socket) => {
       }
       room.gameState.round += 1;
       room.gameState.results = [];
+      room.gameState.expectedCount = null;
+      room.gameState.ended = false;
     }
     io.to(code).emit(
       'game:round-reset',
       room.currentGame === 'image-game' ? { question: room.gameState.question } : {}
     );
+    ack?.({ success: true });
+  });
+
+  // 호스트가 응답을 다 기다리지 않고 현재 단계를 바로 정산해 결과 화면으로 넘긴다
+  socket.on('host:force-result', ({ code } = {}, ack) => {
+    const room = rooms.get(code);
+    if (!room || room.hostSocketId !== socket.id || room.status !== 'playing' || !room.gameState) {
+      ack?.({ success: false, error: '결과로 넘어갈 수 없습니다.' });
+      return;
+    }
+    const gs = room.gameState;
+    const notAvailable = () => ack?.({ success: false, error: '지금은 결과로 넘어갈 수 있는 단계가 아니에요.' });
+
+    if (room.currentGame === 'stop-at-7') {
+      if (typeof gs.expectedCount !== 'number' || gs.ended) return notAvailable();
+      gs.ended = true;
+      io.to(code).emit('game:round-closed', {
+        results: sortedResults(gs),
+        totalParticipants: room.participants.length,
+      });
+    } else if (room.currentGame === 'nunchi') {
+      if (typeof gs.expectedCount !== 'number' || gs.ended) return notAvailable();
+      endNunchiRound(code, room);
+    } else if (room.currentGame === 'truth-or-lie') {
+      if (gs.phase === 'writing') {
+        if (gs.sentences.length === 0) {
+          ack?.({ success: false, error: '아직 제출된 문장이 없어요.' });
+          return;
+        }
+        gs.expectedCount = gs.sentences.length;
+        maybeCompleteWriting(code, room);
+      } else if (gs.phase === 'guessing') {
+        gs.expectedGuessers = gs.guesses.length;
+        maybeRevealRoundResult(code, room);
+      } else {
+        return notAvailable();
+      }
+    } else if (room.currentGame === 'bluffing-number') {
+      if (gs.round === 0 || gs.resolved || gs.gameOver) return notAvailable();
+      resolveBluffingRound(code, room, { force: true });
+    } else if (room.currentGame === 'liar-game') {
+      if (!gs.liarId) return notAvailable();
+      gs.expectedVotes = gs.votes.length;
+      maybeResolveLiarRound(code, room);
+    } else if (room.currentGame === 'traffic-light') {
+      if (gs.round === 0 || gs.resolved) return notAvailable();
+      resolveLightRound(code, room);
+    } else if (room.currentGame === 'indian-poker') {
+      if (gs.round === 0 || gs.resolved) return notAvailable();
+      resolveIndianPokerRound(code, room);
+    } else if (room.currentGame === 'mbti-guess') {
+      if (!gs.answered || gs.stageResolved) return notAvailable();
+      resolveMbtiStage(code, room);
+    } else if (room.currentGame === 'image-game') {
+      if (!gs.started || gs.resolved) return notAvailable();
+      resolveImageRound(code, room);
+    } else {
+      return notAvailable();
+    }
     ack?.({ success: true });
   });
 
@@ -1421,9 +1529,7 @@ io.on('connection', (socket) => {
           if (!hadTapped) {
             gs.expectedTaps = Math.max(0, gs.expectedTaps - 1);
           }
-          if (gs.lightState === 'red') {
-            maybeResolveLightRound(code, room);
-          }
+          maybeResolveLightRound(code, room);
         }
       } else if (room.currentGame === 'indian-poker' && room.status === 'playing') {
         const gs = room.gameState;

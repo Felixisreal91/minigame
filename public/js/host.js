@@ -34,6 +34,7 @@ const hostQrPopover = document.getElementById('host-qr-popover');
 const hostQrPopoverCode = document.getElementById('host-qr-popover-code');
 const hostQrCanvas = document.getElementById('host-qr-canvas');
 const hostStopBtn = document.getElementById('host-stop-btn');
+const hostForceResultBtn = document.getElementById('host-force-result-btn');
 
 const gameHostReady = document.getElementById('game-host-ready');
 const gameHostReadyMessage = document.getElementById('game-host-ready-message');
@@ -181,6 +182,7 @@ let imageVoteDetail = [];
 let activeGame = null; // 'stop-at-7' | 'nunchi' | 'truth-or-lie' | 'bluffing-number' | 'liar-game'
 let countdownTimer = null;
 let currentTopScreen = null;
+let stopAt7Closed = false;
 
 if (!code) {
   alert('잘못된 접근입니다. 방을 다시 만들어주세요.');
@@ -208,9 +210,16 @@ function showTopScreen(screen) {
   mbtiHostScreen.classList.toggle('hidden', screen !== 'mbti-host');
   imageHostScreen.classList.toggle('hidden', screen !== 'image-host');
   hostStopBtn.classList.toggle('hidden', screen === 'game-select' || screen === 'manage');
+  setForceResultAvailable(false);
+}
+
+// 참가자 응답을 기다리는 단계에서만 '바로 결과' 버튼을 보여준다
+function setForceResultAvailable(available) {
+  hostForceResultBtn.classList.toggle('hidden', !available);
 }
 
 function showIndianHostSubView(view) {
+  setForceResultAvailable(view === 'playing');
   indianHostReady.classList.toggle('hidden', view !== 'ready');
   indianHostPlaying.classList.toggle('hidden', view !== 'playing');
   indianHostResult.classList.toggle('hidden', view !== 'result');
@@ -228,6 +237,7 @@ function renderIndianHostResult({ reveal, winnerNickname }) {
 }
 
 function showMbtiHostSubView(view) {
+  setForceResultAvailable(view === 'guessing');
   mbtiHostReady.classList.toggle('hidden', view !== 'ready');
   mbtiHostWaitingAnswer.classList.toggle('hidden', view !== 'waiting-answer');
   mbtiHostGuessing.classList.toggle('hidden', view !== 'guessing');
@@ -272,6 +282,7 @@ function renderMbtiHostResult({ axisKey, correctLetter, targetNickname, results,
 }
 
 function showImageHostSubView(view) {
+  setForceResultAvailable(view === 'voting');
   imageHostReady.classList.toggle('hidden', view !== 'ready');
   imageHostVoting.classList.toggle('hidden', view !== 'voting');
   imageHostResult.classList.toggle('hidden', view !== 'result');
@@ -294,29 +305,40 @@ function renderImageHostDetail(votes) {
 }
 
 function showLightHostSubView(view) {
+  setForceResultAvailable(view === 'playing');
   lightHostReady.classList.toggle('hidden', view !== 'ready');
   lightHostPlaying.classList.toggle('hidden', view !== 'playing');
   lightHostResult.classList.toggle('hidden', view !== 'result');
 }
 
-function renderLightHostResult({ reason, eliminatedNickname, taps }) {
-  if (reason === 'early') {
-    lightHostResultBanner.textContent = '😱 초록불에 눌렀어요!';
-    lightHostResultEliminated.textContent = `${eliminatedNickname}님 탈락`;
-    lightHostReactionList.innerHTML = '';
-  } else {
-    lightHostResultBanner.textContent = '🐌 가장 늦게 눌렀어요!';
-    lightHostResultEliminated.textContent = `${eliminatedNickname}님 탈락`;
-    lightHostReactionList.innerHTML = taps
-      .map((t) => {
-        const isLoser = t.nickname === eliminatedNickname;
-        return `<li class="${isLoser ? 'loser' : ''}">${escapeHtml(t.nickname)} — ${t.reactionMs}ms</li>`;
-      })
-      .join('');
-  }
+const LIGHT_RESULT_BANNERS = {
+  early: '😱 초록불에 누른 사람이 있어요!',
+  missed: '⏰ 누르지 않은 사람이 있어요!',
+  last: '🐌 가장 늦게 눌렀어요!',
+};
+
+function renderLightReactionList({ eliminatedNicknames, earlyNicknames, missedNicknames, taps }) {
+  const eliminatedSet = new Set(eliminatedNicknames);
+  return [
+    ...taps.map(
+      (t) =>
+        `<li class="${eliminatedSet.has(t.nickname) ? 'loser' : ''}">${escapeHtml(t.nickname)} — ${t.reactionMs}ms</li>`
+    ),
+    ...earlyNicknames.map((n) => `<li class="loser">${escapeHtml(n)} — 초록불에 누름</li>`),
+    ...missedNicknames.map((n) => `<li class="loser">${escapeHtml(n)} — 누르지 않음</li>`),
+  ].join('');
+}
+
+function renderLightHostResult(payload) {
+  const { reason, eliminatedNicknames } = payload;
+  lightHostResultBanner.textContent = LIGHT_RESULT_BANNERS[reason];
+  lightHostResultEliminated.textContent =
+    eliminatedNicknames.length > 0 ? `${eliminatedNicknames.join(', ')}님 탈락` : '탈락자가 없어요';
+  lightHostReactionList.innerHTML = renderLightReactionList(payload);
 }
 
 function showLiarHostSubView(view) {
+  setForceResultAvailable(view === 'voting');
   liarHostOption.classList.toggle('hidden', view !== 'option');
   liarHostReady.classList.toggle('hidden', view !== 'ready');
   liarHostVoting.classList.toggle('hidden', view !== 'voting');
@@ -337,6 +359,7 @@ function renderLiarHostVoteTally(voteTally) {
 }
 
 function showBluffingHostSubView(view) {
+  setForceResultAvailable(view === 'picking');
   bluffingHostRange.classList.toggle('hidden', view !== 'range');
   bluffingHostReady.classList.toggle('hidden', view !== 'ready');
   bluffingHostPicking.classList.toggle('hidden', view !== 'picking');
@@ -354,7 +377,7 @@ function renderBluffingHostResult(round, picks, eliminated) {
     .join('');
   bluffingHostEliminatedCount.textContent = `${eliminated.length}명`;
   bluffingHostEliminatedList.innerHTML = eliminated
-    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number}</li>`)
+    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number ?? '미선택'}</li>`)
     .join('');
 }
 
@@ -369,6 +392,7 @@ function renderBluffingHostFinal(survivors, eliminatedLog) {
 }
 
 function showTolHostSubView(view) {
+  setForceResultAvailable(view === 'writing' || view === 'reveal');
   tolHostWriting.classList.toggle('hidden', view !== 'writing');
   tolHostWritingComplete.classList.toggle('hidden', view !== 'writing-complete');
   tolHostReveal.classList.toggle('hidden', view !== 'reveal');
@@ -409,12 +433,14 @@ function renderTolHostResult({
 }
 
 function showHostGameSubView(view) {
+  setForceResultAvailable(!stopAt7Closed && (view === 'countdown' || view === 'leaderboard'));
   gameHostReady.classList.toggle('hidden', view !== 'ready');
   gameHostCountdown.classList.toggle('hidden', view !== 'countdown');
   gameHostLeaderboard.classList.toggle('hidden', view !== 'leaderboard');
 }
 
 function showNunchiSubView(view) {
+  setForceResultAvailable(view === 'countdown' || view === 'progress');
   nunchiHostReady.classList.toggle('hidden', view !== 'ready');
   nunchiHostCountdown.classList.toggle('hidden', view !== 'countdown');
   nunchiHostProgress.classList.toggle('hidden', view !== 'progress');
@@ -502,6 +528,7 @@ socket.emit('host:attach', { code }, (res) => {
   } else if (res.status === 'playing' && res.gameState) {
     activeGame = res.currentGame;
     if (res.currentGame === 'stop-at-7') {
+      stopAt7Closed = Boolean(res.gameState.ended) || typeof res.gameState.expectedCount !== 'number';
       showTopScreen('game-host');
       showHostGameSubView('leaderboard');
       renderHostLeaderboard(res.gameState.results, res.participants.length);
@@ -563,7 +590,7 @@ socket.emit('host:attach', { code }, (res) => {
         lightHostIndicator.textContent = gs.lightState === 'red' ? '🔴' : '🟢';
         lightHostStatusText.textContent =
           gs.lightState === 'red' ? '빨간불로 바뀌었어요!' : '초록불이에요... 아무도 누르면 안 돼요';
-        lightHostProgressText.textContent = gs.lightState === 'red' ? `${gs.taps.length}/${gs.expectedTaps}명 터치` : '';
+        lightHostProgressText.textContent = `${gs.taps.length}/${gs.expectedTaps}명 터치`;
       }
     } else if (res.currentGame === 'indian-poker') {
       showTopScreen('indian-poker-host');
@@ -631,6 +658,7 @@ gameCardStopAt7.addEventListener('click', () => {
     gameCardStopAt7.disabled = false;
     if (res?.success) {
       activeGame = 'stop-at-7';
+      stopAt7Closed = false;
       showTopScreen('game-host');
       gameHostReadyMessage.textContent = '버튼을 누르면 모든 참가자가 동시에 시작합니다';
       showHostGameSubView('ready');
@@ -858,6 +886,7 @@ tolHostNextRoundBtn.addEventListener('click', requestTolNextRound);
 
 socket.on('game:round-start', () => {
   if (activeGame === 'stop-at-7') {
+    stopAt7Closed = false;
     showHostGameSubView('countdown');
     runCountdown(gameHostCountdownNumber, () => {
       showHostGameSubView('leaderboard');
@@ -875,7 +904,7 @@ socket.on('game:round-start', () => {
   } else if (activeGame === 'traffic-light') {
     lightHostIndicator.textContent = '🟢';
     lightHostStatusText.textContent = '초록불이에요... 아무도 누르면 안 돼요';
-    lightHostProgressText.textContent = '';
+    lightHostProgressText.textContent = `0/${participantCount}명 터치`;
     showLightHostSubView('playing');
   } else if (activeGame === 'indian-poker') {
     indianHostProgressText.textContent = `0/${participantCount}명 선택 완료`;
@@ -887,7 +916,6 @@ socket.on('game:light-turned-red', () => {
   if (activeGame !== 'traffic-light') return;
   lightHostIndicator.textContent = '🔴';
   lightHostStatusText.textContent = '빨간불로 바뀌었어요!';
-  lightHostProgressText.textContent = `0/${participantCount}명 터치`;
 });
 
 socket.on('game:tap-progress', ({ tappedCount, totalParticipants }) => {
@@ -903,6 +931,7 @@ socket.on('game:choice-progress', ({ submittedCount, totalParticipants }) => {
 socket.on('game:round-reset', ({ question } = {}) => {
   clearInterval(countdownTimer);
   if (activeGame === 'stop-at-7') {
+    stopAt7Closed = false;
     gameHostStartBtn.disabled = false;
     gameHostReadyMessage.textContent = '버튼을 누르면 모든 참가자가 동시에 시작합니다';
     showHostGameSubView('ready');
@@ -937,11 +966,20 @@ socket.on('game:leaderboard-update', ({ results, totalParticipants }) => {
   renderHostLeaderboard(results, totalParticipants);
 });
 
+socket.on('game:round-closed', ({ results, totalParticipants }) => {
+  if (activeGame !== 'stop-at-7') return;
+  clearInterval(countdownTimer);
+  stopAt7Closed = true;
+  showHostGameSubView('leaderboard');
+  renderHostLeaderboard(results, totalParticipants);
+});
+
 socket.on('game:press-update', ({ pressedCount, totalParticipants }) => {
   renderNunchiProgress(pressedCount, totalParticipants);
 });
 
 socket.on('game:round-end', ({ results, eliminated }) => {
+  clearInterval(countdownTimer);
   renderNunchiReveal(results, eliminated);
   showNunchiSubView('reveal');
 });
@@ -1265,6 +1303,17 @@ hostStopBtn.addEventListener('click', () => {
       showTopScreen('game-select');
     } else {
       alert(res?.error || '이동할 수 없습니다.');
+    }
+  });
+});
+
+hostForceResultBtn.addEventListener('click', () => {
+  if (!confirm('아직 응답하지 않은 참가자가 있어도 지금 바로 결과를 공개할까요?')) return;
+  hostForceResultBtn.disabled = true;
+  socket.emit('host:force-result', { code }, (res) => {
+    hostForceResultBtn.disabled = false;
+    if (!res?.success) {
+      alert(res?.error || '결과로 넘어갈 수 없습니다.');
     }
   });
 });

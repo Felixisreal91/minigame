@@ -17,7 +17,10 @@
           <canvas id="host-qr-canvas"></canvas>
         </div>
       </div>
-      <button id="host-stop-btn" class="stop-btn hidden">⏹ 게임 중단</button>
+      <div class="host-toolbar-actions">
+        <button id="host-force-result-btn" class="force-result-btn hidden">⏭ 바로 결과</button>
+        <button id="host-stop-btn" class="stop-btn hidden">⏹ 게임 중단</button>
+      </div>
     </div>
 
     <!-- 참가자 관리 화면 -->
@@ -144,7 +147,7 @@
     <section id="light-host-screen" class="hidden">
       <header class="hero">
         <h1>신호등 게임</h1>
-        <p>초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요</p>
+        <p>초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요. 모두 눌러야 끝나요</p>
       </header>
 
       <div id="light-host-ready" class="center-block">

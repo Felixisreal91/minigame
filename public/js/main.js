@@ -240,20 +240,27 @@ function startLightPlaying() {
   showLightSubView('playing');
 }
 
-function renderLightResult({ reason, eliminatedNickname, taps }) {
-  const iAmEliminated = eliminatedNickname === myNickname;
-  if (reason === 'early') {
-    lightResultBanner.textContent = iAmEliminated ? '😱 초록불에 눌렀어요!' : '😱 초록불에 눌러서 탈락!';
+function renderLightResult({ eliminatedNicknames, earlyNicknames, missedNicknames, taps }) {
+  const eliminatedSet = new Set(eliminatedNicknames);
+  if (earlyNicknames.includes(myNickname)) {
+    lightResultBanner.textContent = '😱 초록불에 눌러서 탈락!';
+  } else if (missedNicknames.includes(myNickname)) {
+    lightResultBanner.textContent = '⏰ 누르지 않아서 탈락!';
+  } else if (eliminatedSet.has(myNickname)) {
+    lightResultBanner.textContent = '🐌 가장 늦게 눌러서 탈락!';
   } else {
-    lightResultBanner.textContent = iAmEliminated ? '🐌 가장 늦게 눌렀어요!' : '🐌 가장 늦게 눌러서 탈락!';
+    lightResultBanner.textContent = '🎉 통과했어요!';
   }
-  lightResultEliminated.textContent = `${eliminatedNickname}님 탈락`;
-  lightReactionList.innerHTML = taps
-    .map((t) => {
-      const isLoser = t.nickname === eliminatedNickname;
-      return `<li class="${isLoser ? 'loser' : ''}">${escapeHtml(t.nickname)} — ${t.reactionMs}ms</li>`;
-    })
-    .join('');
+  lightResultEliminated.textContent =
+    eliminatedNicknames.length > 0 ? `${eliminatedNicknames.join(', ')}님 탈락` : '탈락자가 없어요';
+  lightReactionList.innerHTML = [
+    ...taps.map(
+      (t) =>
+        `<li class="${eliminatedSet.has(t.nickname) ? 'loser' : ''}">${escapeHtml(t.nickname)} — ${t.reactionMs}ms</li>`
+    ),
+    ...earlyNicknames.map((n) => `<li class="loser">${escapeHtml(n)} — 초록불에 누름</li>`),
+    ...missedNicknames.map((n) => `<li class="loser">${escapeHtml(n)} — 누르지 않음</li>`),
+  ].join('');
 }
 
 function showIndianSubView(view) {
@@ -485,7 +492,7 @@ function renderBluffingRoundReveal(picks, eliminated, round) {
     .join('');
   bluffingEliminatedCount.textContent = `${eliminated.length}명`;
   bluffingEliminatedList.innerHTML = eliminated
-    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number}</li>`)
+    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number ?? '미선택'}</li>`)
     .join('');
 }
 
@@ -841,6 +848,19 @@ socket.on('game:leaderboard-update', ({ results, totalParticipants }) => {
   renderLeaderboard(results, totalParticipants);
 });
 
+socket.on('game:round-closed', ({ results, totalParticipants }) => {
+  if (activeGame !== 'stop-at-7') return;
+  clearInterval(countdownTimer);
+  if (gameResult.classList.contains('hidden')) {
+    // 기록을 제출하기 전에 호스트가 라운드를 끝낸 경우
+    cancelAnimationFrame(rafId);
+    gameStopBtn.disabled = true;
+    gameMyResult.textContent = '기록 없음';
+    showGameSubView('result');
+  }
+  renderLeaderboard(results, totalParticipants);
+});
+
 function startStopwatch() {
   showGameSubView('stopwatch');
   gameStopBtn.disabled = false;
@@ -909,6 +929,7 @@ socket.on('game:press-update', ({ pressedCount, totalParticipants }) => {
 
 socket.on('game:round-end', ({ results, eliminated }) => {
   if (activeGame !== 'nunchi') return;
+  clearInterval(countdownTimer);
   renderNunchiReveal(results, eliminated);
   showNunchiSubView('reveal');
 });
@@ -921,7 +942,9 @@ lightTapBtn.addEventListener('click', () => {
   lightTapBtn.disabled = true;
   lightStatusText.textContent = '제출함, 결과 기다리는 중...';
   socket.emit('player:tap-light', { code: joinedCode, round: lightCurrentRound }, (res) => {
-    if (!res?.success) {
+    if (res?.success && res.early) {
+      lightStatusText.textContent = '😱 초록불에 눌렀어요! 다른 사람들을 기다리는 중...';
+    } else if (!res?.success) {
       lightHasTapped = false;
       lightTapBtn.disabled = false;
       lightStatusText.textContent = res?.error || '오류가 발생했습니다.';
@@ -1051,7 +1074,7 @@ function submitMbtiGuess(guess) {
 mbtiGuessOption0.addEventListener('click', () => submitMbtiGuess(mbtiGuessOption0.textContent));
 mbtiGuessOption1.addEventListener('click', () => submitMbtiGuess(mbtiGuessOption1.textContent));
 
-socket.on('game:round-result', (payload) => {
+socket.on('game:mbti-stage-result', (payload) => {
   if (activeGame !== 'mbti-guess') return;
   renderMbtiResult(payload);
 });

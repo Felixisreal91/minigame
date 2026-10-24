@@ -510,6 +510,20 @@ button.primary.light-btn--red {
   font-size: 0.9rem;
 }
 
+.host-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.force-result-btn {
+  background: var(--bg-carbon);
+  color: inherit;
+  border: 1px solid currentColor;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
 .qr-popover {
   position: absolute;
   top: 44px;
