@@ -75,6 +75,10 @@ const tolHostCorrectCount = document.getElementById('tol-host-correct-count');
 const tolHostCorrectList = document.getElementById('tol-host-correct-list');
 const tolHostIncorrectCount = document.getElementById('tol-host-incorrect-count');
 const tolHostIncorrectList = document.getElementById('tol-host-incorrect-list');
+const tolHostWritingMissed = document.getElementById('tol-host-writing-missed');
+const tolHostMissedCard = document.getElementById('tol-host-missed-card');
+const tolHostMissedCount = document.getElementById('tol-host-missed-count');
+const tolHostMissedList = document.getElementById('tol-host-missed-list');
 const tolHostNextRoundBtn = document.getElementById('tol-host-next-round-btn');
 const tolHostRestartBtn = document.getElementById('tol-host-restart-btn');
 const tolHostBackBtn = document.getElementById('tol-host-back-btn');
@@ -230,8 +234,9 @@ function renderIndianHostResult({ reveal, winnerNickname }) {
   indianHostRevealList.innerHTML = reveal
     .map((r) => {
       const isWinner = r.nickname === winnerNickname;
-      const choiceLabel = r.choice === 'go' ? 'GO' : r.choice === 'stop' ? 'STOP' : '미선택';
-      return `<li class="${isWinner ? 'winner' : ''}">${escapeHtml(r.nickname)} — ${r.number} (${choiceLabel})</li>`;
+      const choiceLabel = r.choice === 'go' ? 'GO' : r.choice === 'stop' ? 'STOP' : '[미참여]';
+      const className = isWinner ? 'winner' : r.choice ? '' : 'missed';
+      return `<li class="${className}">${escapeHtml(r.nickname)} — ${r.number} (${choiceLabel})</li>`;
     })
     .join('');
 }
@@ -268,12 +273,13 @@ function renderMbtiTargetList(participants) {
   });
 }
 
-function renderMbtiHostResult({ axisKey, correctLetter, targetNickname, results, scoreboard, isLastStage }) {
+function renderMbtiHostResult({ axisKey, correctLetter, targetNickname, results, missedNicknames, scoreboard, isLastStage }) {
   mbtiHostResultAxis.textContent = `${targetNickname}님의 정답 (${axisKey.toUpperCase()})`;
   mbtiHostResultAnswer.textContent = correctLetter;
-  mbtiHostResultList.innerHTML = results
-    .map((r) => `<li class="${r.correct ? 'winner' : 'loser'}">${escapeHtml(r.nickname)} — ${r.guess} ${r.correct ? '✅' : '❌'}</li>`)
-    .join('');
+  mbtiHostResultList.innerHTML =
+    results
+      .map((r) => `<li class="${r.correct ? 'winner' : 'loser'}">${escapeHtml(r.nickname)} — ${r.guess} ${r.correct ? '✅' : '❌'}</li>`)
+      .join('') + renderMissedItems(missedNicknames);
   mbtiHostScoreboardList.innerHTML = scoreboard
     .map((s, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(s.nickname)} — ${s.correctCount}개 정답</li>`)
     .join('');
@@ -291,7 +297,10 @@ function showImageHostSubView(view) {
 function renderImageHostResult({ question, tally }) {
   imageHostResultQuestion.textContent = question;
   imageHostTallyList.innerHTML = tally
-    .map((t, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(t.nickname)} — ${t.voteCount}표</li>`)
+    .map(
+      (t, i) =>
+        `<li><span class="num">${i + 1}</span>${escapeHtml(t.nickname)} — ${t.voteCount}표${t.missed ? ' [미참여]' : ''}</li>`
+    )
     .join('');
   imageHostDetailCard.classList.add('hidden');
   imageHostToggleDetailBtn.textContent = '참가자별 선택 보기';
@@ -313,7 +322,6 @@ function showLightHostSubView(view) {
 
 const LIGHT_RESULT_BANNERS = {
   early: '😱 초록불에 누른 사람이 있어요!',
-  missed: '⏰ 누르지 않은 사람이 있어요!',
   last: '🐌 가장 늦게 눌렀어요!',
 };
 
@@ -325,7 +333,7 @@ function renderLightReactionList({ eliminatedNicknames, earlyNicknames, missedNi
         `<li class="${eliminatedSet.has(t.nickname) ? 'loser' : ''}">${escapeHtml(t.nickname)} — ${t.reactionMs}ms</li>`
     ),
     ...earlyNicknames.map((n) => `<li class="loser">${escapeHtml(n)} — 초록불에 누름</li>`),
-    ...missedNicknames.map((n) => `<li class="loser">${escapeHtml(n)} — 누르지 않음</li>`),
+    renderMissedItems(missedNicknames),
   ].join('');
 }
 
@@ -353,7 +361,7 @@ function renderLiarHostVoteTally(voteTally) {
   liarHostVoteTallyList.innerHTML = voteTally
     .map(
       (v) =>
-        `<li class="${v.isLiar ? 'loser' : ''}">${escapeHtml(v.nickname)} — ${v.votes}표${v.isLiar ? ' (라이어)' : ''}</li>`
+        `<li class="${v.isLiar ? 'loser' : ''}">${escapeHtml(v.nickname)} — ${v.votes}표${v.isLiar ? ' (라이어)' : ''}${v.missed ? ' [미참여]' : ''}</li>`
     )
     .join('');
 }
@@ -370,14 +378,14 @@ function renderBluffingHostPickProgress(pickedCount, totalParticipants) {
   bluffingHostPickProgress.textContent = `${pickedCount}/${totalParticipants}명 선택`;
 }
 
-function renderBluffingHostResult(round, picks, eliminated) {
+function renderBluffingHostResult(round, picks, eliminated, missedNicknames) {
   bluffingHostRoundIndicator.textContent = `${round}라운드 결과`;
-  bluffingHostPicksList.innerHTML = picks
-    .map((p, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(p.nickname)} — ${p.number}</li>`)
-    .join('');
+  bluffingHostPicksList.innerHTML =
+    picks.map((p, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(p.nickname)} — ${p.number}</li>`).join('') +
+    renderMissedItems(missedNicknames);
   bluffingHostEliminatedCount.textContent = `${eliminated.length}명`;
   bluffingHostEliminatedList.innerHTML = eliminated
-    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number ?? '미선택'}</li>`)
+    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number}</li>`)
     .join('');
 }
 
@@ -413,6 +421,7 @@ function renderTolHostResult({
   authorNickname,
   correctGuessers,
   incorrectGuessers,
+  missedNicknames = [],
   roundNumber,
   totalRounds,
   isLastRound,
@@ -428,6 +437,9 @@ function renderTolHostResult({
   tolHostIncorrectList.innerHTML = incorrectGuessers
     .map((n, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(n)}</li>`)
     .join('');
+  tolHostMissedCard.classList.toggle('hidden', missedNicknames.length === 0);
+  tolHostMissedCount.textContent = `${missedNicknames.length}명`;
+  tolHostMissedList.innerHTML = renderMissedItems(missedNicknames);
   tolHostNextRoundBtn.classList.toggle('hidden', isLastRound);
   tolHostRestartBtn.classList.toggle('hidden', !isLastRound);
 }
@@ -464,6 +476,11 @@ function renderParticipants(participants) {
   gameSelectParticipantListEl.innerHTML = listHtml;
 }
 
+// 호스트가 중간에 멈춰서 응답하지 못한 참가자 행
+function renderMissedItems(nicknames = []) {
+  return nicknames.map((n) => `<li class="missed">${escapeHtml(n)} [미참여]</li>`).join('');
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -474,29 +491,31 @@ function formatSeconds(ms) {
   return `${(ms / 1000).toFixed(2)}초`;
 }
 
-function renderHostLeaderboard(results, totalParticipants) {
+function renderHostLeaderboard(results, totalParticipants, missedNicknames = []) {
   gameHostLeaderboardCount.textContent = `${results.length}/${totalParticipants}명 제출`;
-  gameHostLeaderboardEmpty.classList.toggle('hidden', results.length > 0);
-  gameHostLeaderboardList.innerHTML = results
-    .map(
-      (r, i) =>
-        `<li><span class="num">${i + 1}</span>${escapeHtml(r.nickname)} — ${formatSeconds(r.elapsedMs)} (${formatSeconds(r.diffMs)} 차이)</li>`
-    )
-    .join('');
+  gameHostLeaderboardEmpty.classList.toggle('hidden', results.length + missedNicknames.length > 0);
+  gameHostLeaderboardList.innerHTML =
+    results
+      .map(
+        (r, i) =>
+          `<li><span class="num">${i + 1}</span>${escapeHtml(r.nickname)} — ${formatSeconds(r.elapsedMs)} (${formatSeconds(r.diffMs)} 차이)</li>`
+      )
+      .join('') + renderMissedItems(missedNicknames);
 }
 
 function renderNunchiProgress(pressedCount, totalParticipants) {
   nunchiHostProgressText.textContent = `${pressedCount}/${totalParticipants}명 눌렀어요`;
 }
 
-function renderNunchiReveal(results, eliminated) {
+function renderNunchiReveal(results, eliminated, missedNicknames) {
   const eliminatedSet = new Set(eliminated);
-  nunchiHostRevealList.innerHTML = results
-    .map((r) => {
-      const isLoser = eliminatedSet.has(r.nickname);
-      return `<li class="${isLoser ? 'loser' : ''}"><span class="num">${r.order}</span>${escapeHtml(r.nickname)}${isLoser ? ' — 🫠 졌습니다!' : ''}</li>`;
-    })
-    .join('');
+  nunchiHostRevealList.innerHTML =
+    results
+      .map((r) => {
+        const isLoser = eliminatedSet.has(r.nickname);
+        return `<li class="${isLoser ? 'loser' : ''}"><span class="num">${r.order}</span>${escapeHtml(r.nickname)}${isLoser ? ' — 🫠 졌습니다!' : ''}</li>`;
+      })
+      .join('') + renderMissedItems(missedNicknames);
 }
 
 function runCountdown(numberEl, onDone) {
@@ -966,21 +985,21 @@ socket.on('game:leaderboard-update', ({ results, totalParticipants }) => {
   renderHostLeaderboard(results, totalParticipants);
 });
 
-socket.on('game:round-closed', ({ results, totalParticipants }) => {
+socket.on('game:round-closed', ({ results, totalParticipants, missedNicknames }) => {
   if (activeGame !== 'stop-at-7') return;
   clearInterval(countdownTimer);
   stopAt7Closed = true;
   showHostGameSubView('leaderboard');
-  renderHostLeaderboard(results, totalParticipants);
+  renderHostLeaderboard(results, totalParticipants, missedNicknames);
 });
 
 socket.on('game:press-update', ({ pressedCount, totalParticipants }) => {
   renderNunchiProgress(pressedCount, totalParticipants);
 });
 
-socket.on('game:round-end', ({ results, eliminated }) => {
+socket.on('game:round-end', ({ results, eliminated, missedNicknames }) => {
   clearInterval(countdownTimer);
-  renderNunchiReveal(results, eliminated);
+  renderNunchiReveal(results, eliminated, missedNicknames);
   showNunchiSubView('reveal');
 });
 
@@ -989,8 +1008,10 @@ socket.on('game:writing-progress', ({ submittedCount, totalParticipants }) => {
   renderTolHostWritingProgress(submittedCount, totalParticipants);
 });
 
-socket.on('game:writing-complete', () => {
+socket.on('game:writing-complete', ({ missedNicknames = [] } = {}) => {
   if (activeGame !== 'truth-or-lie') return;
+  tolHostWritingMissed.classList.toggle('hidden', missedNicknames.length === 0);
+  tolHostWritingMissed.textContent = `[미참여] ${missedNicknames.join(', ')}`;
   showTolHostSubView('writing-complete');
 });
 
@@ -1020,9 +1041,9 @@ socket.on('game:pick-progress', ({ pickedCount, totalParticipants }) => {
 
 socket.on('game:round-result', (payload) => {
   if (activeGame !== 'bluffing-number') return;
-  const { round, picks, eliminated, isGameOver, survivors, eliminatedLog } = payload;
+  const { round, picks, eliminated, missedNicknames, isGameOver, survivors, eliminatedLog } = payload;
 
-  renderBluffingHostResult(round, picks, eliminated);
+  renderBluffingHostResult(round, picks, eliminated, missedNicknames);
   bluffingHostNext.classList.toggle('hidden', isGameOver);
   bluffingHostFinal.classList.toggle('hidden', !isGameOver);
   if (isGameOver) {

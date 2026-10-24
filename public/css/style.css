@@ -426,6 +426,10 @@ button.primary.light-btn--red {
   border: 1px solid var(--danger);
 }
 
+.participant-list li.missed {
+  opacity: 0.55;
+}
+
 .participant-list li.winner {
   background: rgba(236, 171, 55, 0.25);
   border: 1px solid var(--accent);

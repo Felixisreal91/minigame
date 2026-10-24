@@ -59,6 +59,7 @@ const io = new Server(httpServer);
 //     sentences: [{id, nickname, sentence, isTrue}], expectedCount,
 //     order: [id, ...] (셔플된 작성자 순서), currentIndex,
 //     guesses: [{id, nickname, guess}] (라운드마다 초기화), expectedGuessers,
+//     roundGuessers: [{id,nickname}] (라운드 시작 시점 스냅샷, 작성자 제외),
 //   }
 //   bluffing-number: {
 //     range: null | {min:1, max}, round, alive: [id,...], picks: [{id,nickname,number}] (라운드마다 초기화),
@@ -157,6 +158,7 @@ function createInitialGameState(game) {
       currentIndex: -1,
       guesses: [],
       expectedGuessers: 0,
+      roundGuessers: [],
     };
   }
   if (game === 'bluffing-number') {
@@ -274,21 +276,17 @@ function endNunchiRound(code, room) {
   const gs = room.gameState;
   gs.ended = true;
   const { results } = gs;
-  // 호스트가 강제로 끝낸 경우 아직 안 누른 참가자는 맨 뒤(=가장 늦게 누른 것)로 취급해 탈락시킨다
-  const notPressed = missingNicknames(room, gs.roundParticipants, results);
+  // 호스트가 강제로 끝낸 경우 아직 안 누른 참가자는 [미참여]로 표시하고 승패 판정에서 제외한다
+  const missedNicknames = missingNicknames(room, gs.roundParticipants, results);
 
   if (results.length === 0) {
-    const ranked = notPressed.map((nickname) => ({ nickname, order: '-' }));
-    io.to(code).emit('game:round-end', { results: ranked, eliminated: notPressed });
-    saveGameResult(code, 'nunchi', gs.round, { results: ranked, eliminated: notPressed });
+    io.to(code).emit('game:round-end', { results: [], eliminated: [], missedNicknames });
+    saveGameResult(code, 'nunchi', gs.round, { results: [], eliminated: [], missedNicknames });
     return;
   }
 
   // results는 서버가 이벤트를 받은 순서(=pressedAt 오름차순)로 이미 쌓여있음
-  const ranked = [
-    ...results.map((r, i) => ({ nickname: r.nickname, order: i + 1 })),
-    ...notPressed.map((nickname) => ({ nickname, order: '-' })),
-  ];
+  const ranked = results.map((r, i) => ({ nickname: r.nickname, order: i + 1 }));
 
   // 전후 0.3초 이내로 연속해서 누른 사람들을 하나의 클러스터로 묶는다
   const clusters = [[results[0]]];
@@ -300,11 +298,13 @@ function endNunchiRound(code, room) {
     }
   }
   const collisionClusters = clusters.filter((c) => c.length > 1);
-  const losers = [...collisionClusters.flat().map((r) => r.nickname), ...notPressed];
-  const eliminated = losers.length > 0 ? losers : [results[results.length - 1].nickname];
+  const eliminated =
+    collisionClusters.length > 0
+      ? collisionClusters.flat().map((r) => r.nickname)
+      : [results[results.length - 1].nickname];
 
-  io.to(code).emit('game:round-end', { results: ranked, eliminated });
-  saveGameResult(code, 'nunchi', gs.round, { results: ranked, eliminated });
+  io.to(code).emit('game:round-end', { results: ranked, eliminated, missedNicknames });
+  saveGameResult(code, 'nunchi', gs.round, { results: ranked, eliminated, missedNicknames });
 }
 
 function maybeCompleteWriting(code, room) {
@@ -314,7 +314,8 @@ function maybeCompleteWriting(code, room) {
   gs.phase = 'writing-complete';
   gs.order = shuffle(gs.sentences.map((s) => s.id));
   gs.currentIndex = -1;
-  io.to(code).emit('game:writing-complete', {});
+  const missedNicknames = missingNicknames(room, room.participants, gs.sentences);
+  io.to(code).emit('game:writing-complete', { missedNicknames });
 }
 
 function maybeRevealRoundResult(code, room) {
@@ -334,6 +335,7 @@ function maybeRevealRoundResult(code, room) {
     authorNickname: authorEntry.nickname,
     correctGuessers,
     incorrectGuessers,
+    missedNicknames: missingNicknames(room, gs.roundGuessers, gs.guesses),
     roundNumber: gs.currentIndex + 1,
     totalRounds: gs.order.length,
     isLastRound: gs.currentIndex >= gs.order.length - 1,
@@ -348,7 +350,7 @@ function buildBluffingSummary(room, gs) {
   return { survivors, eliminatedLog };
 }
 
-function resolveBluffingRound(code, room, { force = false } = {}) {
+function resolveBluffingRound(code, room) {
   const gs = room.gameState;
   if (gs.gameOver || gs.resolved) return;
   gs.resolved = true;
@@ -369,16 +371,11 @@ function resolveBluffingRound(code, room, { force = false } = {}) {
   } else {
     eliminatedThisRound = [];
   }
-  if (force) {
-    // 호스트가 강제로 끝낸 경우 숫자를 고르지 않은 생존자도 탈락
-    const pickedIds = new Set(gs.picks.map((p) => p.id));
-    gs.alive
-      .filter((id) => !pickedIds.has(id))
-      .forEach((id) => {
-        const p = room.participants.find((rp) => rp.id === id);
-        eliminatedThisRound.push({ id, nickname: p ? p.nickname : '참가자', number: null });
-      });
-  }
+
+  // 호스트가 강제로 끝낸 경우 숫자를 고르지 않은 생존자는 [미참여]로 표시하고 다음 라운드에도 그대로 생존
+  const missedNicknames = room.participants
+    .filter((p) => gs.alive.includes(p.id) && !gs.picks.some((pick) => pick.id === p.id))
+    .map((p) => p.nickname);
 
   const eliminatedIds = new Set(eliminatedThisRound.map((p) => p.id));
   gs.alive = gs.alive.filter((id) => !eliminatedIds.has(id));
@@ -391,6 +388,7 @@ function resolveBluffingRound(code, room, { force = false } = {}) {
     round: gs.round,
     picks: [...gs.picks].sort((a, b) => a.number - b.number).map((p) => ({ nickname: p.nickname, number: p.number })),
     eliminated: eliminatedThisRound.map((p) => ({ nickname: p.nickname, number: p.number })),
+    missedNicknames,
     remainingCount: gs.alive.length,
     isGameOver,
   };
@@ -422,7 +420,12 @@ function maybeResolveLiarRound(code, room) {
   const participantsWin = topVotedIds.includes(gs.liarId);
 
   const voteTally = gs.roundParticipants
-    .map((p) => ({ nickname: p.nickname, votes: voteCounts.get(p.id) || 0, isLiar: p.id === gs.liarId }))
+    .map((p) => ({
+      nickname: p.nickname,
+      votes: voteCounts.get(p.id) || 0,
+      isLiar: p.id === gs.liarId,
+      missed: !gs.votes.some((v) => v.id === p.id),
+    }))
     .sort((a, b) => b.votes - a.votes);
 
   const payload = {
@@ -482,6 +485,7 @@ function resolveMbtiStage(code, room) {
   });
 
   const results = gs.guesses.map((g) => ({ nickname: g.nickname, guess: g.guess, correct: g.guess === correctLetter }));
+  const missedNicknames = missingNicknames(room, gs.roundParticipants, gs.guesses);
   const scoreboard = gs.roundParticipants
     .map((p) => ({ nickname: p.nickname, correctCount: gs.scoreboard[p.id] || 0 }))
     .sort((a, b) => b.correctCount - a.correctCount);
@@ -493,6 +497,7 @@ function resolveMbtiStage(code, room) {
     correctLetter,
     targetNickname: gs.targetNickname,
     results,
+    missedNicknames,
     scoreboard,
     isLastStage,
   };
@@ -514,7 +519,11 @@ function resolveImageRound(code, room) {
   const voteCounts = new Map();
   gs.votes.forEach((v) => voteCounts.set(v.votedForId, (voteCounts.get(v.votedForId) || 0) + 1));
   const tally = gs.roundParticipants
-    .map((p) => ({ nickname: p.nickname, voteCount: voteCounts.get(p.id) || 0 }))
+    .map((p) => ({
+      nickname: p.nickname,
+      voteCount: voteCounts.get(p.id) || 0,
+      missed: !gs.votes.some((v) => v.id === p.id),
+    }))
     .sort((a, b) => b.voteCount - a.voteCount);
 
   const payload = { round: gs.round, question: gs.question, tally };
@@ -538,17 +547,17 @@ function resolveLightRound(code, room) {
   clearLightTimeout(gs);
 
   const earlyNicknames = gs.taps.filter((t) => t.early).map((t) => t.nickname);
-  // 호스트가 강제로 끝낸 경우에만 생김: 라운드 중 아무것도 안 누른 참가자
+  // 호스트가 강제로 끝낸 경우에만 생김: 라운드 중 아무것도 안 누른 참가자 ([미참여], 승패 판정 제외)
   const missedNicknames = missingNicknames(room, gs.roundParticipants, gs.taps);
   const sorted = gs.taps.filter((t) => !t.early).sort((a, b) => a.tappedAt - b.tappedAt);
   const taps = sorted.map((t) => ({ nickname: t.nickname, reactionMs: t.tappedAt - gs.redTurnedAt }));
 
-  // 초록불에 누른 사람(반칙)과 안 누른 사람이 있으면 그들이 탈락, 없으면 빨간불에 가장 늦게 누른 사람이 탈락
+  // 초록불에 누른 사람(반칙)이 있으면 그들이 탈락, 없으면 빨간불에 가장 늦게 누른 사람이 탈락
   let reason;
   let eliminatedNicknames;
-  if (earlyNicknames.length > 0 || missedNicknames.length > 0) {
-    reason = earlyNicknames.length > 0 ? 'early' : 'missed';
-    eliminatedNicknames = [...earlyNicknames, ...missedNicknames];
+  if (earlyNicknames.length > 0) {
+    reason = 'early';
+    eliminatedNicknames = earlyNicknames;
   } else {
     reason = 'last';
     eliminatedNicknames = sorted.length > 0 ? [sorted[sorted.length - 1].nickname] : [];
@@ -1162,6 +1171,9 @@ io.on('connection', (socket) => {
     const authorEntry = gs.sentences.find((s) => s.id === authorId);
     const authorStillPresent = room.participants.some((p) => p.id === authorId);
     gs.expectedGuessers = Math.max(0, room.participants.length - (authorStillPresent ? 1 : 0));
+    gs.roundGuessers = room.participants
+      .filter((p) => p.id !== authorId)
+      .map((p) => ({ id: p.id, nickname: p.nickname }));
 
     const payload = {
       sentence: authorEntry.sentence,
@@ -1373,6 +1385,7 @@ io.on('connection', (socket) => {
       io.to(code).emit('game:round-closed', {
         results: sortedResults(gs),
         totalParticipants: room.participants.length,
+        missedNicknames: missingNicknames(room, gs.roundParticipants, gs.results),
       });
     } else if (room.currentGame === 'nunchi') {
       if (typeof gs.expectedCount !== 'number' || gs.ended) return notAvailable();
@@ -1393,7 +1406,7 @@ io.on('connection', (socket) => {
       }
     } else if (room.currentGame === 'bluffing-number') {
       if (gs.round === 0 || gs.resolved || gs.gameOver) return notAvailable();
-      resolveBluffingRound(code, room, { force: true });
+      resolveBluffingRound(code, room);
     } else if (room.currentGame === 'liar-game') {
       if (!gs.liarId) return notAvailable();
       gs.expectedVotes = gs.votes.length;
@@ -1502,6 +1515,7 @@ io.on('connection', (socket) => {
               round: gs.round,
               picks: [],
               eliminated: [],
+              missedNicknames: [],
               remainingCount: gs.alive.length,
               isGameOver: true,
               ...buildBluffingSummary(room, gs),

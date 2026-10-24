@@ -127,6 +127,9 @@ const tolCorrectCount = document.getElementById('tol-correct-count');
 const tolCorrectList = document.getElementById('tol-correct-list');
 const tolIncorrectCount = document.getElementById('tol-incorrect-count');
 const tolIncorrectList = document.getElementById('tol-incorrect-list');
+const tolMissedCard = document.getElementById('tol-missed-card');
+const tolMissedCount = document.getElementById('tol-missed-count');
+const tolMissedList = document.getElementById('tol-missed-list');
 
 const bluffingScreen = document.getElementById('bluffing-screen');
 const bluffingReady = document.getElementById('bluffing-ready');
@@ -204,6 +207,11 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// 호스트가 중간에 멈춰서 응답하지 못한 참가자 행
+function renderMissedItems(nicknames = []) {
+  return nicknames.map((n) => `<li class="missed">${escapeHtml(n)} [미참여]</li>`).join('');
+}
+
 function formatSeconds(ms) {
   return `${(ms / 1000).toFixed(2)}초`;
 }
@@ -245,7 +253,7 @@ function renderLightResult({ eliminatedNicknames, earlyNicknames, missedNickname
   if (earlyNicknames.includes(myNickname)) {
     lightResultBanner.textContent = '😱 초록불에 눌러서 탈락!';
   } else if (missedNicknames.includes(myNickname)) {
-    lightResultBanner.textContent = '⏰ 누르지 않아서 탈락!';
+    lightResultBanner.textContent = '[미참여] 누르기 전에 게임이 끝났어요';
   } else if (eliminatedSet.has(myNickname)) {
     lightResultBanner.textContent = '🐌 가장 늦게 눌러서 탈락!';
   } else {
@@ -259,7 +267,7 @@ function renderLightResult({ eliminatedNicknames, earlyNicknames, missedNickname
         `<li class="${eliminatedSet.has(t.nickname) ? 'loser' : ''}">${escapeHtml(t.nickname)} — ${t.reactionMs}ms</li>`
     ),
     ...earlyNicknames.map((n) => `<li class="loser">${escapeHtml(n)} — 초록불에 누름</li>`),
-    ...missedNicknames.map((n) => `<li class="loser">${escapeHtml(n)} — 누르지 않음</li>`),
+    renderMissedItems(missedNicknames),
   ].join('');
 }
 
@@ -285,8 +293,9 @@ function renderIndianResult({ reveal, winnerNickname }) {
   indianRevealList.innerHTML = reveal
     .map((r) => {
       const isWinner = r.nickname === winnerNickname;
-      const choiceLabel = r.choice === 'go' ? 'GO' : r.choice === 'stop' ? 'STOP' : '미선택';
-      return `<li class="${isWinner ? 'winner' : ''}">${escapeHtml(r.nickname)} — ${r.number} (${choiceLabel})</li>`;
+      const choiceLabel = r.choice === 'go' ? 'GO' : r.choice === 'stop' ? 'STOP' : '[미참여]';
+      const className = isWinner ? 'winner' : r.choice ? '' : 'missed';
+      return `<li class="${className}">${escapeHtml(r.nickname)} — ${r.number} (${choiceLabel})</li>`;
     })
     .join('');
 }
@@ -334,19 +343,22 @@ function showMbtiGuessingRole({ title, options, targetNickname }) {
   showMbtiSubView('guessing');
 }
 
-function renderMbtiResult({ axisKey, correctLetter, targetNickname, results, scoreboard, isLastStage }) {
+function renderMbtiResult({ axisKey, correctLetter, targetNickname, results, missedNicknames, scoreboard, isLastStage }) {
   const myResult = results.find((r) => r.nickname === myNickname);
   if (mbtiIsTarget) {
     mbtiResultBanner.textContent = isLastStage ? '🎉 최종 결과!' : `정답: ${correctLetter}`;
   } else if (myResult) {
     mbtiResultBanner.textContent = myResult.correct ? '정답! 🎉' : '아쉬워요 😅';
+  } else if (missedNicknames.includes(myNickname)) {
+    mbtiResultBanner.textContent = `[미참여] 정답: ${correctLetter}`;
   } else {
     mbtiResultBanner.textContent = `정답: ${correctLetter}`;
   }
   mbtiResultAxis.textContent = `${targetNickname}님의 ${axisKey.toUpperCase()} 정답은 ${correctLetter}`;
-  mbtiResultList.innerHTML = results
-    .map((r) => `<li class="${r.correct ? 'winner' : 'loser'}">${escapeHtml(r.nickname)} — ${r.guess} ${r.correct ? '✅' : '❌'}</li>`)
-    .join('');
+  mbtiResultList.innerHTML =
+    results
+      .map((r) => `<li class="${r.correct ? 'winner' : 'loser'}">${escapeHtml(r.nickname)} — ${r.guess} ${r.correct ? '✅' : '❌'}</li>`)
+      .join('') + renderMissedItems(missedNicknames);
   mbtiScoreboardList.innerHTML = scoreboard
     .map((s, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(s.nickname)} — ${s.correctCount}개 정답</li>`)
     .join('');
@@ -397,7 +409,10 @@ function submitImageVote(votedForId) {
 function renderImageResult({ question, tally }) {
   imageResultQuestion.textContent = question;
   imageTallyList.innerHTML = tally
-    .map((t, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(t.nickname)} — ${t.voteCount}표</li>`)
+    .map(
+      (t, i) =>
+        `<li><span class="num">${i + 1}</span>${escapeHtml(t.nickname)} — ${t.voteCount}표${t.missed ? ' [미참여]' : ''}</li>`
+    )
     .join('');
   showImageSubView('result');
 }
@@ -444,7 +459,7 @@ function renderLiarVoteTally(voteTally) {
   liarVoteTallyList.innerHTML = voteTally
     .map(
       (v) =>
-        `<li class="${v.isLiar ? 'loser' : ''}">${escapeHtml(v.nickname)} — ${v.votes}표${v.isLiar ? ' (라이어)' : ''}</li>`
+        `<li class="${v.isLiar ? 'loser' : ''}">${escapeHtml(v.nickname)} — ${v.votes}표${v.isLiar ? ' (라이어)' : ''}${v.missed ? ' [미참여]' : ''}</li>`
     )
     .join('');
 }
@@ -485,14 +500,14 @@ function submitBluffingPick(number) {
   });
 }
 
-function renderBluffingRoundReveal(picks, eliminated, round) {
+function renderBluffingRoundReveal(picks, eliminated, round, missedNicknames) {
   bluffingRoundIndicator.textContent = `${round}라운드 결과`;
-  bluffingPicksList.innerHTML = picks
-    .map((p, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(p.nickname)} — ${p.number}</li>`)
-    .join('');
+  bluffingPicksList.innerHTML =
+    picks.map((p, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(p.nickname)} — ${p.number}</li>`).join('') +
+    renderMissedItems(missedNicknames);
   bluffingEliminatedCount.textContent = `${eliminated.length}명`;
   bluffingEliminatedList.innerHTML = eliminated
-    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number ?? '미선택'}</li>`)
+    .map((p) => `<li class="loser">${escapeHtml(p.nickname)} — ${p.number}</li>`)
     .join('');
 }
 
@@ -848,17 +863,17 @@ socket.on('game:leaderboard-update', ({ results, totalParticipants }) => {
   renderLeaderboard(results, totalParticipants);
 });
 
-socket.on('game:round-closed', ({ results, totalParticipants }) => {
+socket.on('game:round-closed', ({ results, totalParticipants, missedNicknames }) => {
   if (activeGame !== 'stop-at-7') return;
   clearInterval(countdownTimer);
   if (gameResult.classList.contains('hidden')) {
     // 기록을 제출하기 전에 호스트가 라운드를 끝낸 경우
     cancelAnimationFrame(rafId);
     gameStopBtn.disabled = true;
-    gameMyResult.textContent = '기록 없음';
+    gameMyResult.textContent = '[미참여] 기록 없음';
     showGameSubView('result');
   }
-  renderLeaderboard(results, totalParticipants);
+  renderLeaderboard(results, totalParticipants, missedNicknames);
 });
 
 function startStopwatch() {
@@ -889,14 +904,15 @@ gameStopBtn.addEventListener('click', () => {
   });
 });
 
-function renderLeaderboard(results, totalParticipants) {
+function renderLeaderboard(results, totalParticipants, missedNicknames) {
   gameLeaderboardCount.textContent = `${results.length}/${totalParticipants}명 제출`;
-  gameLeaderboardList.innerHTML = results
-    .map(
-      (r, i) =>
-        `<li><span class="num">${i + 1}</span>${escapeHtml(r.nickname)} — ${formatSeconds(r.elapsedMs)} (${formatSeconds(r.diffMs)} 차이)</li>`
-    )
-    .join('');
+  gameLeaderboardList.innerHTML =
+    results
+      .map(
+        (r, i) =>
+          `<li><span class="num">${i + 1}</span>${escapeHtml(r.nickname)} — ${formatSeconds(r.elapsedMs)} (${formatSeconds(r.diffMs)} 차이)</li>`
+      )
+      .join('') + renderMissedItems(missedNicknames);
 }
 
 // ---- 눈치게임 ----
@@ -927,10 +943,10 @@ socket.on('game:press-update', ({ pressedCount, totalParticipants }) => {
     : progress;
 });
 
-socket.on('game:round-end', ({ results, eliminated }) => {
+socket.on('game:round-end', ({ results, eliminated, missedNicknames }) => {
   if (activeGame !== 'nunchi') return;
   clearInterval(countdownTimer);
-  renderNunchiReveal(results, eliminated);
+  renderNunchiReveal(results, eliminated, missedNicknames);
   showNunchiSubView('reveal');
 });
 
@@ -1099,14 +1115,15 @@ socket.on('game:round-result', (payload) => {
   renderImageResult(payload);
 });
 
-function renderNunchiReveal(results, eliminated) {
+function renderNunchiReveal(results, eliminated, missedNicknames) {
   const eliminatedSet = new Set(eliminated);
-  nunchiRevealList.innerHTML = results
-    .map((r) => {
-      const isLoser = eliminatedSet.has(r.nickname);
-      return `<li class="${isLoser ? 'loser' : ''}"><span class="num">${r.order}</span>${escapeHtml(r.nickname)}${isLoser ? ' — 🫠 졌습니다!' : ''}</li>`;
-    })
-    .join('');
+  nunchiRevealList.innerHTML =
+    results
+      .map((r) => {
+        const isLoser = eliminatedSet.has(r.nickname);
+        return `<li class="${isLoser ? 'loser' : ''}"><span class="num">${r.order}</span>${escapeHtml(r.nickname)}${isLoser ? ' — 🫠 졌습니다!' : ''}</li>`;
+      })
+      .join('') + renderMissedItems(missedNicknames);
 }
 
 // ---- 진실 혹은 거짓 ----
@@ -1164,11 +1181,13 @@ socket.on('game:writing-progress', ({ submittedCount, totalParticipants }) => {
   }
 });
 
-socket.on('game:writing-complete', () => {
+socket.on('game:writing-complete', ({ missedNicknames = [] } = {}) => {
   if (activeGame !== 'truth-or-lie') return;
   tolWriteForm.classList.add('hidden');
   tolWriteDone.classList.remove('hidden');
-  tolWriteProgress.textContent = '모든 문장이 준비됐어요! 호스트가 첫 라운드를 시작하면 시작돼요';
+  tolWriteProgress.textContent = missedNicknames.includes(myNickname)
+    ? '[미참여] 문장을 제출하기 전에 작성이 마감됐어요. 맞히기에는 참여할 수 있어요!'
+    : '모든 문장이 준비됐어요! 호스트가 첫 라운드를 시작하면 시작돼요';
 });
 
 socket.on('game:round-reveal', ({ sentence, roundNumber, totalRounds, isAuthor }) => {
@@ -1219,7 +1238,7 @@ socket.on('game:guess-progress', ({ answeredCount, totalParticipants }) => {
   }
 });
 
-socket.on('game:round-result', ({ sentence, isTrue, authorNickname, correctGuessers, incorrectGuessers, roundNumber, totalRounds }) => {
+socket.on('game:round-result', ({ sentence, isTrue, authorNickname, correctGuessers, incorrectGuessers, missedNicknames = [], roundNumber, totalRounds }) => {
   if (activeGame !== 'truth-or-lie') return;
 
   tolResultRoundIndicator.textContent = `${roundNumber}/${totalRounds} 라운드`;
@@ -1233,6 +1252,9 @@ socket.on('game:round-result', ({ sentence, isTrue, authorNickname, correctGuess
   tolIncorrectList.innerHTML = incorrectGuessers
     .map((n, i) => `<li><span class="num">${i + 1}</span>${escapeHtml(n)}</li>`)
     .join('');
+  tolMissedCard.classList.toggle('hidden', missedNicknames.length === 0);
+  tolMissedCount.textContent = `${missedNicknames.length}명`;
+  tolMissedList.innerHTML = renderMissedItems(missedNicknames);
 
   showTolSubView('result');
 });
@@ -1248,9 +1270,9 @@ socket.on('game:pick-progress', ({ pickedCount, totalParticipants }) => {
 
 socket.on('game:round-result', (payload) => {
   if (activeGame !== 'bluffing-number') return;
-  const { round, picks, eliminated, isGameOver, survivors, eliminatedLog } = payload;
+  const { round, picks, eliminated, missedNicknames, isGameOver, survivors, eliminatedLog } = payload;
 
-  renderBluffingRoundReveal(picks, eliminated, round);
+  renderBluffingRoundReveal(picks, eliminated, round, missedNicknames);
   bluffingContinue.classList.toggle('hidden', isGameOver);
   bluffingFinal.classList.toggle('hidden', !isGameOver);
   if (isGameOver) {
