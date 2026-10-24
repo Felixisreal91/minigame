@@ -27,9 +27,13 @@
   box-sizing: border-box;
 }
 
+/* 게임기 전체가 한 화면에 들어오도록 높이를 뷰포트에 고정하고,
+   내용이 길면 액정(.page) 안에서만 스크롤한다 */
 body {
   margin: 0;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background:
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 6px),
     #24262b;
@@ -40,34 +44,39 @@ body {
   overflow-wrap: anywhere;
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 
 /* ---------- 본체 ---------- */
 
 .console {
+  position: relative;
   width: 100%;
   max-width: 480px;
-  min-height: 100vh;
+  height: 100%;
   background: linear-gradient(90deg, var(--shell-shade) 0, var(--shell) 6px, var(--shell) calc(100% - 6px), var(--shell-shade) 100%);
-  border-radius: 10px 10px 48px 10px;
-  padding: 20px 16px 32px;
+  border-radius: 10px 10px 40px 10px;
+  padding: 10px 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 6px;
 }
 
 @media (min-width: 520px) {
   .console {
-    min-height: auto;
-    margin: 24px 0;
-    box-shadow: 0 10px 0 var(--shell-shade), 0 18px 40px rgba(0, 0, 0, 0.5);
+    height: min(calc(100% - 32px), 940px);
+    box-shadow: 0 8px 0 var(--shell-shade), 0 16px 40px rgba(0, 0, 0, 0.5);
   }
 }
 
 .console-screen-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--bezel);
-  border-radius: 8px 8px 36px 8px;
-  padding: 10px 16px 18px;
+  border-radius: 8px 8px 28px 8px;
+  padding: 6px 12px 14px;
   box-shadow: inset 0 -3px 0 var(--bezel-dark);
 }
 
@@ -76,9 +85,9 @@ body {
   align-items: center;
   gap: 8px;
   color: #b9bccb;
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   letter-spacing: 0.08em;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .screen-label::before,
@@ -101,7 +110,7 @@ body {
 .console-logo {
   font-family: var(--pixel-font-display);
   color: var(--logo-ink);
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   font-style: italic;
   letter-spacing: 0.04em;
   padding-left: 4px;
@@ -117,13 +126,14 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 18px 0;
+  padding: 0 64px 4px 14px;
 }
 
 .dpad {
   position: relative;
-  width: 84px;
-  height: 84px;
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
 }
 
 .dpad::before,
@@ -136,60 +146,60 @@ body {
 }
 
 .dpad::before {
-  left: 28px;
+  left: 20px;
   top: 0;
-  width: 28px;
-  height: 84px;
+  width: 20px;
+  height: 60px;
 }
 
 .dpad::after {
   left: 0;
-  top: 28px;
-  width: 84px;
-  height: 28px;
+  top: 20px;
+  width: 60px;
+  height: 20px;
 }
 
 .ab-buttons {
   display: flex;
-  gap: 14px;
+  gap: 10px;
   transform: rotate(-25deg);
+  padding-bottom: 14px;
 }
 
 .ab-buttons span {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: var(--button-ab);
-  box-shadow: 0 4px 0 var(--button-ab-dark);
+  box-shadow: 0 3px 0 var(--button-ab-dark);
   position: relative;
 }
 
 .ab-buttons span::after {
   content: attr(data-label);
   position: absolute;
-  bottom: -20px;
+  bottom: -16px;
   left: 50%;
   transform: translateX(-50%);
   color: var(--logo-ink);
-  font-size: 0.75rem;
+  font-size: 0.65rem;
 }
 
 .ab-buttons span:first-child {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .start-select {
   display: flex;
-  justify-content: center;
-  gap: 22px;
+  gap: 14px;
   transform: rotate(-25deg);
-  margin-top: 6px;
+  padding-bottom: 10px;
 }
 
 .start-select span {
-  width: 40px;
-  height: 10px;
-  border-radius: 6px;
+  width: 32px;
+  height: 8px;
+  border-radius: 5px;
   background: #8c8b86;
   position: relative;
 }
@@ -197,27 +207,30 @@ body {
 .start-select span::after {
   content: attr(data-label);
   position: absolute;
-  top: 14px;
+  top: 11px;
   left: 50%;
   transform: translateX(-50%);
   color: var(--logo-ink);
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
+/* 스피커 구멍은 레이아웃을 차지하지 않게 본체 오른쪽 아래 모서리에 겹쳐 둔다 */
 .speaker {
-  align-self: flex-end;
+  position: absolute;
+  right: 18px;
+  bottom: 10px;
   display: flex;
-  gap: 7px;
+  gap: 5px;
   transform: rotate(-25deg);
-  margin: 10px 12px 0 0;
+  pointer-events: none;
 }
 
 .speaker span {
-  width: 5px;
-  height: 44px;
-  border-radius: 3px;
+  width: 4px;
+  height: 26px;
+  border-radius: 2px;
   background: var(--shell-shade);
   box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.25);
 }
@@ -226,11 +239,16 @@ body {
 
 .page {
   width: 100%;
-  min-height: 60vh;
-  padding: 20px 16px 28px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gb-1) transparent;
+  padding: 14px 12px 20px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
   background:
     linear-gradient(rgba(15, 56, 15, 0.05) 1px, transparent 1px) 0 0 / 100% 3px,
     var(--gb-2);
@@ -244,7 +262,7 @@ body {
 section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 section div[id]:not(.center-block):not(.qr-popover):not(.light-indicator) {
@@ -259,14 +277,14 @@ html.restoring .page {
 
 header.hero {
   text-align: center;
-  margin: 8px 0 8px;
+  margin: 2px 0 0;
 }
 
 header.hero h1 {
   font-family: var(--pixel-font-display);
-  font-size: 2.2rem;
+  font-size: 1.8rem;
   line-height: 1.2;
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   font-weight: 400;
   color: var(--gb-0);
   text-shadow: 3px 3px 0 var(--gb-1);
@@ -275,7 +293,7 @@ header.hero h1 {
 header.hero p {
   margin: 0;
   color: var(--gb-1);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   line-height: 1.5;
 }
 
@@ -284,7 +302,7 @@ header.hero::after {
   display: block;
   width: 96px;
   height: 4px;
-  margin: 16px auto 0;
+  margin: 10px auto 0;
   background-image: repeating-linear-gradient(90deg, var(--gb-0) 0 4px, transparent 4px 8px);
 }
 
@@ -307,10 +325,10 @@ button,
 
 .card {
   background: var(--gb-3);
-  padding: 20px 18px;
+  padding: 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   margin: var(--px);
   --drop: calc(var(--px) * 2) calc(var(--px) * 2) 0 0 var(--gb-1);
 }
@@ -439,7 +457,7 @@ button.ghost:hover:not(:disabled) {
   justify-content: center;
   gap: 18px;
   text-align: center;
-  padding: 28px 8px;
+  padding: 16px 8px;
 }
 
 .room-code {
@@ -526,8 +544,8 @@ button.ghost:hover:not(:disabled) {
 
 .game-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
 #clear-cache-btn {
@@ -540,7 +558,7 @@ button.ghost:hover:not(:disabled) {
 
 .game-card {
   background: var(--gb-3);
-  padding: 16px 10px 14px;
+  padding: 12px 4px 10px;
   margin: var(--px);
   display: flex;
   flex-direction: column;
@@ -561,26 +579,24 @@ button.game-card:hover:not(:disabled) {
 }
 
 .game-card-icon {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   image-rendering: pixelated;
 }
 
 .game-card-title {
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 700;
 }
 
+/* 3열 그리드에서는 설명이 카드 높이를 크게 늘려서 숨기고, 각 게임 화면 상단 설명으로 대신한다 */
 .game-card-desc {
-  color: var(--gb-1);
-  font-size: 0.75rem;
-  font-weight: 400;
-  line-height: 1.45;
+  display: none;
 }
 
 .press-btn {
-  width: 168px;
-  height: 168px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
   font-size: 1.5rem;
   margin: 0;
@@ -603,8 +619,8 @@ button.game-card:hover:not(:disabled) {
 }
 
 .light-indicator span {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--gb-1);
 }
