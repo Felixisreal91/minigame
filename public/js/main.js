@@ -242,6 +242,7 @@ function startLightPlaying() {
   lightTapBtn.disabled = false;
   lightTapBtn.classList.remove('light-btn--red');
   lightTapBtn.classList.add('light-btn--green');
+  lightTapBtn.textContent = '기다려...';
   lightIndicator.dataset.light = 'green';
   lightStatusText.textContent = '지금 누르면 탈락이에요!';
   showTopScreen('traffic-light');
@@ -818,6 +819,7 @@ socket.on('game:light-turned-red', () => {
   if (activeGame !== 'traffic-light' || lightHasTapped) return;
   lightTapBtn.classList.remove('light-btn--green');
   lightTapBtn.classList.add('light-btn--red');
+  lightTapBtn.textContent = '터치!';
   lightIndicator.dataset.light = 'red';
   lightStatusText.textContent = '지금 누르세요!';
 });
@@ -952,7 +954,9 @@ socket.on('game:round-end', ({ results, eliminated, missedNicknames }) => {
 
 // ---- 신호등 게임 ----
 
-lightTapBtn.addEventListener('click', () => {
+// 반응속도 게임이라 손가락을 뗄 때(click)가 아니라 닿는 순간(pointerdown)에 제출한다.
+// click은 키보드 입력용으로 남겨 두고, lightHasTapped로 중복 제출을 막는다.
+function submitLightTap() {
   if (lightHasTapped) return;
   lightHasTapped = true;
   lightTapBtn.disabled = true;
@@ -966,7 +970,10 @@ lightTapBtn.addEventListener('click', () => {
       lightStatusText.textContent = res?.error || '오류가 발생했습니다.';
     }
   });
-});
+}
+
+lightTapBtn.addEventListener('pointerdown', submitLightTap);
+lightTapBtn.addEventListener('click', submitLightTap);
 
 socket.on('game:round-result', (payload) => {
   if (activeGame !== 'traffic-light') return;
