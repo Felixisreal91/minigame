@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node server.js)"
+      "Bash(node server.js)",
+      "ClaudeInChromeDomain(dashboard.render.com)",
+      "ClaudeInChromeDomain(localhost:3123)"
     ]
   }
 }
