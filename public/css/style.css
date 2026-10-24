@@ -521,11 +521,13 @@ button.primary.light-btn--red {
 
 .force-result-btn {
   background: var(--bg-carbon);
-  color: inherit;
-  border: 1px solid currentColor;
+  color: var(--primary-dark);
+  font-weight: 700;
+  border: none;
   padding: 8px 14px;
   border-radius: 999px;
   font-size: 0.9rem;
+  cursor: pointer;
 }
 
 .qr-popover {
