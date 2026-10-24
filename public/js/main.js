@@ -242,7 +242,7 @@ function startLightPlaying() {
   lightTapBtn.disabled = false;
   lightTapBtn.classList.remove('light-btn--red');
   lightTapBtn.classList.add('light-btn--green');
-  lightIndicator.textContent = '🟢';
+  lightIndicator.dataset.light = 'green';
   lightStatusText.textContent = '지금 누르면 탈락이에요!';
   showTopScreen('traffic-light');
   showLightSubView('playing');
@@ -818,7 +818,7 @@ socket.on('game:light-turned-red', () => {
   if (activeGame !== 'traffic-light' || lightHasTapped) return;
   lightTapBtn.classList.remove('light-btn--green');
   lightTapBtn.classList.add('light-btn--red');
-  lightIndicator.textContent = '🔴';
+  lightIndicator.dataset.light = 'red';
   lightStatusText.textContent = '지금 누르세요!';
 });
 

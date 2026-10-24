@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>J's 미니게임</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
@@ -18,532 +19,544 @@
       // localStorage 사용 불가 시 그냥 기본 동작(랜딩 화면 즉시 표시)
     }
   </script>
-  <div class="page">
-    <!-- 랜딩 화면 -->
-    <section id="landing-screen">
-      <header class="hero">
-        <h1>J's 미니게임</h1>
-        <p>아이스 브레이킹용 미니게임</p>
-      </header>
+  <div class="console">
+    <div class="console-screen-frame">
+      <div class="screen-label"><span class="power-led"></span>DOT MATRIX</div>
+      <div class="page">
+        <!-- 랜딩 화면 -->
+        <section id="landing-screen">
+          <header class="hero">
+            <h1>J's 미니게임</h1>
+            <p>아이스 브레이킹용 미니게임</p>
+          </header>
 
-      <div class="card">
-        <h2>호스트로 시작하기</h2>
-        <p class="desc">새 방을 만들고 참가자를 초대하세요.</p>
-        <button id="create-room-btn" class="primary">새 방 만들기</button>
-      </div>
-
-      <div class="card">
-        <h2>참가자로 입장하기</h2>
-        <p class="desc">호스트에게 받은 코드 4자리를 입력하세요.</p>
-        <input id="join-code-input" type="text" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" />
-        <input id="join-nickname-input" type="text" maxlength="12" placeholder="닉네임을 입력하세요" />
-        <button id="join-room-btn" class="primary">참가자로 입장하기</button>
-        <p id="join-error" class="error-text"></p>
-      </div>
-
-      <button id="clear-cache-btn" class="ghost">🔄 캐시 삭제 후 새로고침</button>
-    </section>
-
-    <!-- 참가자 대기 화면 -->
-    <section id="waiting-screen" class="hidden">
-      <div class="center-block">
-        <div class="spinner"></div>
-        <div>
-          <p id="waiting-nickname" style="font-size:1.1rem; font-weight:700; margin: 0 0 6px;"></p>
-          <p id="waiting-message" class="desc" style="margin:0;">호스트가 게임을 시작하길 기다리는 중...</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 게임 선택 중: 호스트 화면 미러링 -->
-    <section id="game-select-mirror-screen" class="hidden">
-      <header class="hero">
-        <h1>게임 선택 중</h1>
-        <p>호스트가 게임을 고르고 있어요</p>
-      </header>
-
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h2>참가자 목록</h2>
-          <span class="participant-count" id="mirror-participant-count"></span>
-        </div>
-        <ul class="participant-list" id="mirror-participant-list"></ul>
-        <p id="mirror-empty-participants" class="empty-state">아직 입장한 참가자가 없어요</p>
-      </div>
-
-      <div class="game-grid">
-        <div class="game-card game-card-preview game-card--stop-at-7">
-          <div class="game-card-emoji">⏱️</div>
-          <div class="game-card-title">7초 맞히기</div>
-          <div class="game-card-desc">스톱워치를 정확히 7.00초에 맞춰보세요</div>
-        </div>
-        <div class="game-card game-card-preview game-card--traffic-light">
-          <div class="game-card-emoji">🚦</div>
-          <div class="game-card-title">신호등 게임</div>
-          <div class="game-card-desc">초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요</div>
-        </div>
-        <div class="game-card game-card-preview game-card--nunchi">
-          <div class="game-card-emoji">👀</div>
-          <div class="game-card-title">눈치게임</div>
-          <div class="game-card-desc">다른 사람보다 먼저 누르세요! 마지막에 누르면 져요</div>
-        </div>
-        <div class="game-card game-card-preview game-card--bluffing-number">
-          <div class="game-card-emoji">🎲</div>
-          <div class="game-card-title">블러핑 넘버</div>
-          <div class="game-card-desc">겹치거나 가장 낮은 숫자를 고르면 탈락!</div>
-        </div>
-        <div class="game-card game-card-preview game-card--truth-or-lie">
-          <div class="game-card-emoji">🤥</div>
-          <div class="game-card-title">진실 혹은 거짓</div>
-          <div class="game-card-desc">문장을 쓰고, 서로 진실인지 거짓인지 맞혀보세요</div>
-        </div>
-        <div class="game-card game-card-preview game-card--liar-game">
-          <div class="game-card-emoji">🎭</div>
-          <div class="game-card-title">라이어 게임</div>
-          <div class="game-card-desc">라이어를 찾아라! 다수결로 못 맞히면 라이어 승</div>
-        </div>
-        <div class="game-card game-card-preview game-card--indian-poker">
-          <div class="game-card-emoji">🎴</div>
-          <div class="game-card-title">인디언 포커</div>
-          <div class="game-card-desc">다른 사람 숫자만 보고 Go/Stop! Go 중 최고 숫자가 승리</div>
-        </div>
-        <div class="game-card game-card-preview game-card--mbti-guess">
-          <div class="game-card-emoji">🧠</div>
-          <div class="game-card-title">MBTI 맞히기</div>
-          <div class="game-card-desc">한 사람을 골라 MBTI를 단계별로 맞혀보세요!</div>
-        </div>
-        <div class="game-card game-card-preview game-card--image-game">
-          <div class="game-card-emoji">🖼️</div>
-          <div class="game-card-title">이미지 게임</div>
-          <div class="game-card-desc">이 설명에 가장 어울리는 사람에게 투표하세요!</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 게임 화면: 7초 맞히기 -->
-    <section id="game-screen" class="hidden">
-      <header class="hero">
-        <h1>7초 맞히기</h1>
-        <p>스톱워치를 정확히 7.00초에 맞춰보세요!</p>
-      </header>
-
-      <div id="game-ready" class="center-block">
-        <p id="game-ready-message" class="desc">호스트가 시작하면 카운트다운이 시작돼요</p>
-      </div>
-
-      <div id="game-countdown" class="center-block hidden">
-        <div class="room-code" id="game-countdown-number">3</div>
-      </div>
-
-      <div id="game-stopwatch" class="center-block hidden">
-        <div class="room-code" id="game-stopwatch-time">0.00</div>
-        <button id="game-stop-btn" class="primary">정지</button>
-      </div>
-
-      <div id="game-result" class="hidden">
-        <div class="card" style="align-items:center; text-align:center;">
-          <p class="desc" style="margin:0;">내 기록</p>
-          <div class="room-code" id="game-my-result">-</div>
-        </div>
-        <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>실시간 순위</h2>
-            <span class="participant-count" id="game-leaderboard-count"></span>
-          </div>
-          <ul class="participant-list" id="game-leaderboard-list"></ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- 게임 화면: 신호등 게임 -->
-    <section id="light-screen" class="hidden">
-      <header class="hero">
-        <h1>신호등 게임</h1>
-        <p>초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요. 모두 눌러야 끝나요</p>
-      </header>
-
-      <div id="light-ready" class="center-block">
-        <p class="desc">호스트가 준비 중이에요</p>
-      </div>
-
-      <div id="light-playing" class="center-block hidden">
-        <div class="light-indicator" id="light-indicator">🟢</div>
-        <button id="light-tap-btn" class="primary press-btn light-btn light-btn--green">터치</button>
-        <p id="light-status-text" class="desc">지금 누르면 탈락이에요!</p>
-      </div>
-
-      <div id="light-result" class="hidden">
-        <div class="card">
-          <h2 id="light-result-banner"></h2>
-          <p id="light-result-eliminated"></p>
-          <ul class="participant-list" id="light-reaction-list"></ul>
-          <p class="desc">호스트가 다음 라운드를 준비하고 있어요</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 게임 화면: 눈치게임 -->
-    <section id="nunchi-screen" class="hidden">
-      <header class="hero">
-        <h1>눈치게임</h1>
-        <p>마지막에 누르면 집니다. 단, 0.3초 이내로 겹치면 그 사람들이 집니다</p>
-      </header>
-
-      <div id="nunchi-ready" class="center-block">
-        <p id="nunchi-ready-message" class="desc">호스트가 시작하면 카운트다운이 시작돼요</p>
-      </div>
-
-      <div id="nunchi-countdown" class="center-block hidden">
-        <div class="room-code" id="nunchi-countdown-number">3</div>
-      </div>
-
-      <div id="nunchi-press" class="center-block hidden">
-        <button id="nunchi-press-btn" class="primary press-btn">누르기</button>
-        <p id="nunchi-press-status" class="desc"></p>
-      </div>
-
-      <div id="nunchi-reveal" class="hidden">
-        <div class="card">
-          <h2>결과 공개</h2>
-          <ul class="participant-list" id="nunchi-reveal-list"></ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- 게임 화면: 진실 혹은 거짓 -->
-    <section id="tol-screen" class="hidden">
-      <header class="hero">
-        <h1>진실 혹은 거짓</h1>
-        <p>문장을 쓰고, 서로 진실인지 거짓인지 맞혀보세요</p>
-      </header>
-
-      <!-- 문장 작성 -->
-      <div id="tol-writing" class="hidden">
-        <div class="card" id="tol-write-form">
-          <h2>내 문장 작성하기</h2>
-          <p class="desc" style="margin:0;">나에 대한 문장을 하나 적고, 진실인지 거짓인지 선택하세요</p>
-          <textarea id="tol-sentence-input" maxlength="100" rows="3" placeholder="예: 나는 스카이다이빙을 해본 적이 있다"></textarea>
-          <div class="tol-truth-toggle">
-            <button type="button" id="tol-truth-btn" class="tol-toggle-btn">진실</button>
-            <button type="button" id="tol-lie-btn" class="tol-toggle-btn">거짓</button>
-          </div>
-          <button id="tol-submit-sentence-btn" class="primary">제출하기</button>
-          <p id="tol-write-error" class="error-text"></p>
-        </div>
-        <div id="tol-write-done" class="center-block hidden">
-          <div class="spinner"></div>
-          <p id="tol-write-progress" class="desc">제출 완료! 다른 사람들을 기다리는 중...</p>
-        </div>
-      </div>
-
-      <!-- 라운드 진행 중: 문장 공개 -->
-      <div id="tol-reveal" class="hidden">
-        <p class="desc" id="tol-round-indicator" style="text-align:center;"></p>
-        <div class="card" style="text-align:center;">
-          <p id="tol-reveal-sentence" style="font-size:1.2rem; font-weight:700;"></p>
-        </div>
-
-        <div id="tol-guess-buttons" class="center-block hidden">
-          <div class="tol-truth-toggle">
-            <button id="tol-guess-true-btn" class="tol-toggle-btn">진실</button>
-            <button id="tol-guess-false-btn" class="tol-toggle-btn">거짓</button>
-          </div>
-        </div>
-
-        <div id="tol-author-wait" class="center-block hidden">
-          <div class="spinner"></div>
-          <p class="desc" id="tol-author-wait-text">이건 당신이 쓴 문장이에요! 다른 사람들이 맞히는 중...</p>
-        </div>
-
-        <div id="tol-guess-done" class="center-block hidden">
-          <div class="spinner"></div>
-          <p id="tol-guess-progress" class="desc">답변 제출 완료! 기다리는 중...</p>
-        </div>
-      </div>
-
-      <!-- 결과 공개 -->
-      <div id="tol-result" class="hidden">
-        <p class="desc" id="tol-result-round-indicator" style="text-align:center;"></p>
-        <div class="card" style="text-align:center;">
-          <p id="tol-result-sentence" style="font-size:1.1rem; font-weight:700;"></p>
-          <p id="tol-result-answer" class="desc"></p>
-        </div>
-        <div class="card">
-          <h2>정답자 <span id="tol-correct-count"></span></h2>
-          <ul class="participant-list" id="tol-correct-list"></ul>
-        </div>
-        <div class="card">
-          <h2>오답자 <span id="tol-incorrect-count"></span></h2>
-          <ul class="participant-list" id="tol-incorrect-list"></ul>
-        </div>
-        <div class="card hidden" id="tol-missed-card">
-          <h2>미참여 <span id="tol-missed-count"></span></h2>
-          <ul class="participant-list" id="tol-missed-list"></ul>
-        </div>
-        <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
-      </div>
-    </section>
-
-    <!-- 게임 화면: 블러핑 넘버 -->
-    <section id="bluffing-screen" class="hidden">
-      <header class="hero">
-        <h1>블러핑 넘버</h1>
-        <p>겹치거나 가장 낮은 숫자를 고르면 탈락해요</p>
-      </header>
-
-      <div id="bluffing-ready" class="center-block">
-        <p id="bluffing-ready-message" class="desc">호스트가 범위를 정하고 있어요</p>
-      </div>
-
-      <div id="bluffing-picking" class="hidden">
-        <div id="bluffing-picker">
-          <p class="desc" id="bluffing-picker-instruction" style="text-align:center; margin-bottom: 12px;"></p>
-          <div class="bluffing-number-grid" id="bluffing-number-grid"></div>
-        </div>
-        <div id="bluffing-picked-wait" class="center-block hidden">
-          <div class="spinner"></div>
-          <p id="bluffing-picked-status" class="desc"></p>
-        </div>
-        <div id="bluffing-spectate-wait" class="center-block hidden">
-          <div class="spinner"></div>
-          <p class="desc">이미 탈락했어요. 다른 사람들의 선택을 지켜보는 중...</p>
-        </div>
-      </div>
-
-      <div id="bluffing-result" class="hidden">
-        <p class="desc" id="bluffing-round-indicator" style="text-align:center;"></p>
-        <div class="card">
-          <h2>이번 라운드 선택</h2>
-          <ul class="participant-list" id="bluffing-picks-list"></ul>
-        </div>
-        <div class="card">
-          <h2>이번 라운드 탈락 <span id="bluffing-eliminated-count"></span></h2>
-          <ul class="participant-list" id="bluffing-eliminated-list"></ul>
-        </div>
-
-        <div id="bluffing-continue" class="hidden">
-          <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
-        </div>
-
-        <div id="bluffing-final" class="hidden">
           <div class="card">
-            <h2>최종 생존자</h2>
-            <ul class="participant-list" id="bluffing-survivors-list"></ul>
+            <h2>호스트로 시작하기</h2>
+            <p class="desc">새 방을 만들고 참가자를 초대하세요.</p>
+            <button id="create-room-btn" class="primary">새 방 만들기</button>
           </div>
+
           <div class="card">
-            <h2>전체 탈락자 명단</h2>
-            <ul class="participant-list" id="bluffing-final-eliminated-list"></ul>
+            <h2>참가자로 입장하기</h2>
+            <p class="desc">호스트에게 받은 코드 4자리를 입력하세요.</p>
+            <input id="join-code-input" type="text" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" />
+            <input id="join-nickname-input" type="text" maxlength="12" placeholder="닉네임을 입력하세요" />
+            <button id="join-room-btn" class="primary">참가자로 입장하기</button>
+            <p id="join-error" class="error-text"></p>
           </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- 게임 화면: 라이어 게임 -->
-    <section id="liar-screen" class="hidden">
-      <header class="hero">
-        <h1>라이어 게임</h1>
-        <p>라이어를 찾아라! 다수결로 못 맞히면 라이어 승</p>
-      </header>
+          <button id="clear-cache-btn" class="ghost">🔄 캐시 삭제 후 새로고침</button>
+        </section>
 
-      <div id="liar-ready" class="center-block">
-        <p id="liar-ready-message" class="desc">호스트가 준비 중이에요</p>
-      </div>
-
-      <div id="liar-voting" class="hidden">
-        <div class="card" id="liar-role-card" style="text-align:center;">
-          <p id="liar-role-message" style="font-size:1.1rem; font-weight:700;"></p>
-          <p id="liar-role-sub" class="desc"></p>
-        </div>
-
-        <div id="liar-vote-buttons" class="hidden">
-          <p class="desc" style="text-align:center; margin-bottom:12px;">라이어라고 생각되는 사람에게 투표하세요</p>
-          <div class="liar-vote-list" id="liar-vote-list"></div>
-        </div>
-
-        <div id="liar-vote-done" class="center-block hidden">
-          <div class="spinner"></div>
-          <p id="liar-vote-status" class="desc"></p>
-        </div>
-      </div>
-
-      <div id="liar-result" class="hidden">
-        <div class="card" style="text-align:center;">
-          <p id="liar-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
-          <p id="liar-result-personal" class="desc"></p>
-        </div>
-        <div class="card" style="text-align:center;">
-          <p class="desc" style="margin:0;">제시어</p>
-          <p id="liar-result-word" style="font-size:1.2rem; font-weight:700;"></p>
-          <p id="liar-result-liar" class="desc"></p>
-        </div>
-        <div class="card">
-          <h2>투표 결과</h2>
-          <ul class="participant-list" id="liar-vote-tally-list"></ul>
-        </div>
-        <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
-      </div>
-    </section>
-
-    <!-- 게임 화면: 인디언 포커 -->
-    <section id="indian-poker-screen" class="hidden">
-      <header class="hero">
-        <h1>인디언 포커</h1>
-        <p>다른 사람 숫자만 보고 Go/Stop을 선택하세요!</p>
-      </header>
-
-      <div id="indian-poker-ready" class="center-block">
-        <p class="desc">호스트가 준비 중이에요</p>
-      </div>
-
-      <div id="indian-poker-playing" class="hidden">
-        <div class="card">
-          <h2>다른 사람들의 숫자</h2>
-          <ul class="participant-list" id="indian-poker-others-list"></ul>
-        </div>
-        <div class="indian-choice-buttons">
-          <button id="indian-poker-go-btn" class="indian-go-btn">GO</button>
-          <button id="indian-poker-stop-btn" class="indian-stop-btn">STOP</button>
-        </div>
-        <p id="indian-poker-status-text" class="desc hidden" style="text-align:center;"></p>
-      </div>
-
-      <div id="indian-poker-result" class="hidden">
-        <div class="card" style="text-align:center;">
-          <p id="indian-poker-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
-        </div>
-        <div class="card">
-          <h2>전체 공개</h2>
-          <ul class="participant-list" id="indian-poker-reveal-list"></ul>
-        </div>
-        <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
-      </div>
-    </section>
-
-    <!-- 게임 화면: MBTI 맞히기 -->
-    <section id="mbti-screen" class="hidden">
-      <header class="hero">
-        <h1>MBTI 맞히기</h1>
-        <p>대상자의 MBTI를 단계별로 맞혀보세요!</p>
-      </header>
-
-      <div id="mbti-ready" class="center-block">
-        <p class="desc">호스트가 대상자를 고르는 중이에요</p>
-      </div>
-
-      <div id="mbti-target-form" class="hidden">
-        <div id="mbti-answer-form">
-          <div class="card">
-            <p class="desc" style="margin:0 0 6px;">I (내향) / E (외향)</p>
-            <div class="tol-truth-toggle">
-              <button class="tol-toggle-btn mbti-answer-btn" data-axis="ei" data-value="I">I</button>
-              <button class="tol-toggle-btn mbti-answer-btn" data-axis="ei" data-value="E">E</button>
+        <!-- 참가자 대기 화면 -->
+        <section id="waiting-screen" class="hidden">
+          <div class="center-block">
+            <div class="spinner"></div>
+            <div>
+              <p id="waiting-nickname" style="font-size:1.1rem; font-weight:700; margin: 0 0 6px;"></p>
+              <p id="waiting-message" class="desc" style="margin:0;">호스트가 게임을 시작하길 기다리는 중...</p>
             </div>
           </div>
+        </section>
+
+        <!-- 게임 선택 중: 호스트 화면 미러링 -->
+        <section id="game-select-mirror-screen" class="hidden">
+          <header class="hero">
+            <h1>게임 선택 중</h1>
+            <p>호스트가 게임을 고르고 있어요</p>
+          </header>
+
           <div class="card">
-            <p class="desc" style="margin:0 0 6px;">S (감각) / N (직관)</p>
-            <div class="tol-truth-toggle">
-              <button class="tol-toggle-btn mbti-answer-btn" data-axis="sn" data-value="S">S</button>
-              <button class="tol-toggle-btn mbti-answer-btn" data-axis="sn" data-value="N">N</button>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h2>참가자 목록</h2>
+              <span class="participant-count" id="mirror-participant-count"></span>
+            </div>
+            <ul class="participant-list" id="mirror-participant-list"></ul>
+            <p id="mirror-empty-participants" class="empty-state">아직 입장한 참가자가 없어요</p>
+          </div>
+
+          <div class="game-grid">
+            <div class="game-card game-card-preview game-card--stop-at-7">
+              <img class="game-card-icon" src="/assets/icons/stop-at-7.svg" alt="" />
+              <div class="game-card-title">7초 맞히기</div>
+              <div class="game-card-desc">스톱워치를 정확히 7.00초에 맞춰보세요</div>
+            </div>
+            <div class="game-card game-card-preview game-card--traffic-light">
+              <img class="game-card-icon" src="/assets/icons/traffic-light.svg" alt="" />
+              <div class="game-card-title">신호등 게임</div>
+              <div class="game-card-desc">초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요</div>
+            </div>
+            <div class="game-card game-card-preview game-card--nunchi">
+              <img class="game-card-icon" src="/assets/icons/nunchi.svg" alt="" />
+              <div class="game-card-title">눈치게임</div>
+              <div class="game-card-desc">다른 사람보다 먼저 누르세요! 마지막에 누르면 져요</div>
+            </div>
+            <div class="game-card game-card-preview game-card--bluffing-number">
+              <img class="game-card-icon" src="/assets/icons/bluffing-number.svg" alt="" />
+              <div class="game-card-title">블러핑 넘버</div>
+              <div class="game-card-desc">겹치거나 가장 낮은 숫자를 고르면 탈락!</div>
+            </div>
+            <div class="game-card game-card-preview game-card--truth-or-lie">
+              <img class="game-card-icon" src="/assets/icons/truth-or-lie.svg" alt="" />
+              <div class="game-card-title">진실 혹은 거짓</div>
+              <div class="game-card-desc">문장을 쓰고, 서로 진실인지 거짓인지 맞혀보세요</div>
+            </div>
+            <div class="game-card game-card-preview game-card--liar-game">
+              <img class="game-card-icon" src="/assets/icons/liar-game.svg" alt="" />
+              <div class="game-card-title">라이어 게임</div>
+              <div class="game-card-desc">라이어를 찾아라! 다수결로 못 맞히면 라이어 승</div>
+            </div>
+            <div class="game-card game-card-preview game-card--indian-poker">
+              <img class="game-card-icon" src="/assets/icons/indian-poker.svg" alt="" />
+              <div class="game-card-title">인디언 포커</div>
+              <div class="game-card-desc">다른 사람 숫자만 보고 Go/Stop! Go 중 최고 숫자가 승리</div>
+            </div>
+            <div class="game-card game-card-preview game-card--mbti-guess">
+              <img class="game-card-icon" src="/assets/icons/mbti-guess.svg" alt="" />
+              <div class="game-card-title">MBTI 맞히기</div>
+              <div class="game-card-desc">한 사람을 골라 MBTI를 단계별로 맞혀보세요!</div>
+            </div>
+            <div class="game-card game-card-preview game-card--image-game">
+              <img class="game-card-icon" src="/assets/icons/image-game.svg" alt="" />
+              <div class="game-card-title">이미지 게임</div>
+              <div class="game-card-desc">이 설명에 가장 어울리는 사람에게 투표하세요!</div>
             </div>
           </div>
-          <div class="card">
-            <p class="desc" style="margin:0 0 6px;">F (감정) / T (사고)</p>
-            <div class="tol-truth-toggle">
-              <button class="tol-toggle-btn mbti-answer-btn" data-axis="ft" data-value="F">F</button>
-              <button class="tol-toggle-btn mbti-answer-btn" data-axis="ft" data-value="T">T</button>
+        </section>
+
+        <!-- 게임 화면: 7초 맞히기 -->
+        <section id="game-screen" class="hidden">
+          <header class="hero">
+            <h1>7초 맞히기</h1>
+            <p>스톱워치를 정확히 7.00초에 맞춰보세요!</p>
+          </header>
+
+          <div id="game-ready" class="center-block">
+            <p id="game-ready-message" class="desc">호스트가 시작하면 카운트다운이 시작돼요</p>
+          </div>
+
+          <div id="game-countdown" class="center-block hidden">
+            <div class="room-code" id="game-countdown-number">3</div>
+          </div>
+
+          <div id="game-stopwatch" class="center-block hidden">
+            <div class="room-code" id="game-stopwatch-time">0.00</div>
+            <button id="game-stop-btn" class="primary">정지</button>
+          </div>
+
+          <div id="game-result" class="hidden">
+            <div class="card" style="align-items:center; text-align:center;">
+              <p class="desc" style="margin:0;">내 기록</p>
+              <div class="room-code" id="game-my-result">-</div>
+            </div>
+            <div class="card">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2>실시간 순위</h2>
+                <span class="participant-count" id="game-leaderboard-count"></span>
+              </div>
+              <ul class="participant-list" id="game-leaderboard-list"></ul>
             </div>
           </div>
-          <div class="card">
-            <p class="desc" style="margin:0 0 6px;">P (인식) / J (판단)</p>
-            <div class="tol-truth-toggle">
-              <button class="tol-toggle-btn mbti-answer-btn" data-axis="pj" data-value="P">P</button>
-              <button class="tol-toggle-btn mbti-answer-btn" data-axis="pj" data-value="J">J</button>
+        </section>
+
+        <!-- 게임 화면: 신호등 게임 -->
+        <section id="light-screen" class="hidden">
+          <header class="hero">
+            <h1>신호등 게임</h1>
+            <p>초록불에 누르면 탈락! 빨간불로 바뀌면 터치하세요. 모두 눌러야 끝나요</p>
+          </header>
+
+          <div id="light-ready" class="center-block">
+            <p class="desc">호스트가 준비 중이에요</p>
+          </div>
+
+          <div id="light-playing" class="center-block hidden">
+            <div class="light-indicator" id="light-indicator" data-light="green"><span></span><span></span></div>
+            <button id="light-tap-btn" class="primary press-btn light-btn light-btn--green">터치</button>
+            <p id="light-status-text" class="desc">지금 누르면 탈락이에요!</p>
+          </div>
+
+          <div id="light-result" class="hidden">
+            <div class="card">
+              <h2 id="light-result-banner"></h2>
+              <p id="light-result-eliminated"></p>
+              <ul class="participant-list" id="light-reaction-list"></ul>
+              <p class="desc">호스트가 다음 라운드를 준비하고 있어요</p>
             </div>
           </div>
-          <button id="mbti-answer-submit-btn" class="primary" disabled>제출</button>
-        </div>
+        </section>
 
-        <div id="mbti-answer-wait" class="center-block hidden">
-          <div class="spinner"></div>
-          <p class="desc" id="mbti-answer-wait-text"></p>
-        </div>
-      </div>
+        <!-- 게임 화면: 눈치게임 -->
+        <section id="nunchi-screen" class="hidden">
+          <header class="hero">
+            <h1>눈치게임</h1>
+            <p>마지막에 누르면 집니다. 단, 0.3초 이내로 겹치면 그 사람들이 집니다</p>
+          </header>
 
-      <div id="mbti-guessing" class="hidden">
-        <div id="mbti-guess-buttons">
-          <p class="desc" id="mbti-guess-target-name" style="text-align:center; margin-bottom:4px;"></p>
-          <p class="desc" id="mbti-guess-title" style="text-align:center; font-weight:700; font-size:1.1rem;"></p>
-          <div class="indian-choice-buttons">
-            <button id="mbti-guess-option-0" class="indian-go-btn"></button>
-            <button id="mbti-guess-option-1" class="indian-stop-btn"></button>
+          <div id="nunchi-ready" class="center-block">
+            <p id="nunchi-ready-message" class="desc">호스트가 시작하면 카운트다운이 시작돼요</p>
           </div>
-        </div>
 
-        <div id="mbti-guess-done" class="center-block hidden">
-          <div class="spinner"></div>
-          <p class="desc">제출함, 결과 기다리는 중...</p>
-        </div>
+          <div id="nunchi-countdown" class="center-block hidden">
+            <div class="room-code" id="nunchi-countdown-number">3</div>
+          </div>
 
-        <div id="mbti-guess-target-wait" class="center-block hidden">
-          <div class="spinner"></div>
-          <p class="desc">다른 사람들이 당신의 MBTI를 맞히고 있어요...</p>
-        </div>
+          <div id="nunchi-press" class="center-block hidden">
+            <button id="nunchi-press-btn" class="primary press-btn">누르기</button>
+            <p id="nunchi-press-status" class="desc"></p>
+          </div>
+
+          <div id="nunchi-reveal" class="hidden">
+            <div class="card">
+              <h2>결과 공개</h2>
+              <ul class="participant-list" id="nunchi-reveal-list"></ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 게임 화면: 진실 혹은 거짓 -->
+        <section id="tol-screen" class="hidden">
+          <header class="hero">
+            <h1>진실 혹은 거짓</h1>
+            <p>문장을 쓰고, 서로 진실인지 거짓인지 맞혀보세요</p>
+          </header>
+
+          <!-- 문장 작성 -->
+          <div id="tol-writing" class="hidden">
+            <div class="card" id="tol-write-form">
+              <h2>내 문장 작성하기</h2>
+              <p class="desc" style="margin:0;">나에 대한 문장을 하나 적고, 진실인지 거짓인지 선택하세요</p>
+              <textarea id="tol-sentence-input" maxlength="100" rows="3" placeholder="예: 나는 스카이다이빙을 해본 적이 있다"></textarea>
+              <div class="tol-truth-toggle">
+                <button type="button" id="tol-truth-btn" class="tol-toggle-btn">진실</button>
+                <button type="button" id="tol-lie-btn" class="tol-toggle-btn">거짓</button>
+              </div>
+              <button id="tol-submit-sentence-btn" class="primary">제출하기</button>
+              <p id="tol-write-error" class="error-text"></p>
+            </div>
+            <div id="tol-write-done" class="center-block hidden">
+              <div class="spinner"></div>
+              <p id="tol-write-progress" class="desc">제출 완료! 다른 사람들을 기다리는 중...</p>
+            </div>
+          </div>
+
+          <!-- 라운드 진행 중: 문장 공개 -->
+          <div id="tol-reveal" class="hidden">
+            <p class="desc" id="tol-round-indicator" style="text-align:center;"></p>
+            <div class="card" style="text-align:center;">
+              <p id="tol-reveal-sentence" style="font-size:1.2rem; font-weight:700;"></p>
+            </div>
+
+            <div id="tol-guess-buttons" class="center-block hidden">
+              <div class="tol-truth-toggle">
+                <button id="tol-guess-true-btn" class="tol-toggle-btn">진실</button>
+                <button id="tol-guess-false-btn" class="tol-toggle-btn">거짓</button>
+              </div>
+            </div>
+
+            <div id="tol-author-wait" class="center-block hidden">
+              <div class="spinner"></div>
+              <p class="desc" id="tol-author-wait-text">이건 당신이 쓴 문장이에요! 다른 사람들이 맞히는 중...</p>
+            </div>
+
+            <div id="tol-guess-done" class="center-block hidden">
+              <div class="spinner"></div>
+              <p id="tol-guess-progress" class="desc">답변 제출 완료! 기다리는 중...</p>
+            </div>
+          </div>
+
+          <!-- 결과 공개 -->
+          <div id="tol-result" class="hidden">
+            <p class="desc" id="tol-result-round-indicator" style="text-align:center;"></p>
+            <div class="card" style="text-align:center;">
+              <p id="tol-result-sentence" style="font-size:1.1rem; font-weight:700;"></p>
+              <p id="tol-result-answer" class="desc"></p>
+            </div>
+            <div class="card">
+              <h2>정답자 <span id="tol-correct-count"></span></h2>
+              <ul class="participant-list" id="tol-correct-list"></ul>
+            </div>
+            <div class="card">
+              <h2>오답자 <span id="tol-incorrect-count"></span></h2>
+              <ul class="participant-list" id="tol-incorrect-list"></ul>
+            </div>
+            <div class="card hidden" id="tol-missed-card">
+              <h2>미참여 <span id="tol-missed-count"></span></h2>
+              <ul class="participant-list" id="tol-missed-list"></ul>
+            </div>
+            <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
+          </div>
+        </section>
+
+        <!-- 게임 화면: 블러핑 넘버 -->
+        <section id="bluffing-screen" class="hidden">
+          <header class="hero">
+            <h1>블러핑 넘버</h1>
+            <p>겹치거나 가장 낮은 숫자를 고르면 탈락해요</p>
+          </header>
+
+          <div id="bluffing-ready" class="center-block">
+            <p id="bluffing-ready-message" class="desc">호스트가 범위를 정하고 있어요</p>
+          </div>
+
+          <div id="bluffing-picking" class="hidden">
+            <div id="bluffing-picker">
+              <p class="desc" id="bluffing-picker-instruction" style="text-align:center; margin-bottom: 12px;"></p>
+              <div class="bluffing-number-grid" id="bluffing-number-grid"></div>
+            </div>
+            <div id="bluffing-picked-wait" class="center-block hidden">
+              <div class="spinner"></div>
+              <p id="bluffing-picked-status" class="desc"></p>
+            </div>
+            <div id="bluffing-spectate-wait" class="center-block hidden">
+              <div class="spinner"></div>
+              <p class="desc">이미 탈락했어요. 다른 사람들의 선택을 지켜보는 중...</p>
+            </div>
+          </div>
+
+          <div id="bluffing-result" class="hidden">
+            <p class="desc" id="bluffing-round-indicator" style="text-align:center;"></p>
+            <div class="card">
+              <h2>이번 라운드 선택</h2>
+              <ul class="participant-list" id="bluffing-picks-list"></ul>
+            </div>
+            <div class="card">
+              <h2>이번 라운드 탈락 <span id="bluffing-eliminated-count"></span></h2>
+              <ul class="participant-list" id="bluffing-eliminated-list"></ul>
+            </div>
+
+            <div id="bluffing-continue" class="hidden">
+              <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
+            </div>
+
+            <div id="bluffing-final" class="hidden">
+              <div class="card">
+                <h2>최종 생존자</h2>
+                <ul class="participant-list" id="bluffing-survivors-list"></ul>
+              </div>
+              <div class="card">
+                <h2>전체 탈락자 명단</h2>
+                <ul class="participant-list" id="bluffing-final-eliminated-list"></ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 게임 화면: 라이어 게임 -->
+        <section id="liar-screen" class="hidden">
+          <header class="hero">
+            <h1>라이어 게임</h1>
+            <p>라이어를 찾아라! 다수결로 못 맞히면 라이어 승</p>
+          </header>
+
+          <div id="liar-ready" class="center-block">
+            <p id="liar-ready-message" class="desc">호스트가 준비 중이에요</p>
+          </div>
+
+          <div id="liar-voting" class="hidden">
+            <div class="card" id="liar-role-card" style="text-align:center;">
+              <p id="liar-role-message" style="font-size:1.1rem; font-weight:700;"></p>
+              <p id="liar-role-sub" class="desc"></p>
+            </div>
+
+            <div id="liar-vote-buttons" class="hidden">
+              <p class="desc" style="text-align:center; margin-bottom:12px;">라이어라고 생각되는 사람에게 투표하세요</p>
+              <div class="liar-vote-list" id="liar-vote-list"></div>
+            </div>
+
+            <div id="liar-vote-done" class="center-block hidden">
+              <div class="spinner"></div>
+              <p id="liar-vote-status" class="desc"></p>
+            </div>
+          </div>
+
+          <div id="liar-result" class="hidden">
+            <div class="card" style="text-align:center;">
+              <p id="liar-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
+              <p id="liar-result-personal" class="desc"></p>
+            </div>
+            <div class="card" style="text-align:center;">
+              <p class="desc" style="margin:0;">제시어</p>
+              <p id="liar-result-word" style="font-size:1.2rem; font-weight:700;"></p>
+              <p id="liar-result-liar" class="desc"></p>
+            </div>
+            <div class="card">
+              <h2>투표 결과</h2>
+              <ul class="participant-list" id="liar-vote-tally-list"></ul>
+            </div>
+            <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
+          </div>
+        </section>
+
+        <!-- 게임 화면: 인디언 포커 -->
+        <section id="indian-poker-screen" class="hidden">
+          <header class="hero">
+            <h1>인디언 포커</h1>
+            <p>다른 사람 숫자만 보고 Go/Stop을 선택하세요!</p>
+          </header>
+
+          <div id="indian-poker-ready" class="center-block">
+            <p class="desc">호스트가 준비 중이에요</p>
+          </div>
+
+          <div id="indian-poker-playing" class="hidden">
+            <div class="card">
+              <h2>다른 사람들의 숫자</h2>
+              <ul class="participant-list" id="indian-poker-others-list"></ul>
+            </div>
+            <div class="indian-choice-buttons">
+              <button id="indian-poker-go-btn" class="indian-go-btn">GO</button>
+              <button id="indian-poker-stop-btn" class="indian-stop-btn">STOP</button>
+            </div>
+            <p id="indian-poker-status-text" class="desc hidden" style="text-align:center;"></p>
+          </div>
+
+          <div id="indian-poker-result" class="hidden">
+            <div class="card" style="text-align:center;">
+              <p id="indian-poker-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
+            </div>
+            <div class="card">
+              <h2>전체 공개</h2>
+              <ul class="participant-list" id="indian-poker-reveal-list"></ul>
+            </div>
+            <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
+          </div>
+        </section>
+
+        <!-- 게임 화면: MBTI 맞히기 -->
+        <section id="mbti-screen" class="hidden">
+          <header class="hero">
+            <h1>MBTI 맞히기</h1>
+            <p>대상자의 MBTI를 단계별로 맞혀보세요!</p>
+          </header>
+
+          <div id="mbti-ready" class="center-block">
+            <p class="desc">호스트가 대상자를 고르는 중이에요</p>
+          </div>
+
+          <div id="mbti-target-form" class="hidden">
+            <div id="mbti-answer-form">
+              <div class="card">
+                <p class="desc" style="margin:0 0 6px;">I (내향) / E (외향)</p>
+                <div class="tol-truth-toggle">
+                  <button class="tol-toggle-btn mbti-answer-btn" data-axis="ei" data-value="I">I</button>
+                  <button class="tol-toggle-btn mbti-answer-btn" data-axis="ei" data-value="E">E</button>
+                </div>
+              </div>
+              <div class="card">
+                <p class="desc" style="margin:0 0 6px;">S (감각) / N (직관)</p>
+                <div class="tol-truth-toggle">
+                  <button class="tol-toggle-btn mbti-answer-btn" data-axis="sn" data-value="S">S</button>
+                  <button class="tol-toggle-btn mbti-answer-btn" data-axis="sn" data-value="N">N</button>
+                </div>
+              </div>
+              <div class="card">
+                <p class="desc" style="margin:0 0 6px;">F (감정) / T (사고)</p>
+                <div class="tol-truth-toggle">
+                  <button class="tol-toggle-btn mbti-answer-btn" data-axis="ft" data-value="F">F</button>
+                  <button class="tol-toggle-btn mbti-answer-btn" data-axis="ft" data-value="T">T</button>
+                </div>
+              </div>
+              <div class="card">
+                <p class="desc" style="margin:0 0 6px;">P (인식) / J (판단)</p>
+                <div class="tol-truth-toggle">
+                  <button class="tol-toggle-btn mbti-answer-btn" data-axis="pj" data-value="P">P</button>
+                  <button class="tol-toggle-btn mbti-answer-btn" data-axis="pj" data-value="J">J</button>
+                </div>
+              </div>
+              <button id="mbti-answer-submit-btn" class="primary" disabled>제출</button>
+            </div>
+
+            <div id="mbti-answer-wait" class="center-block hidden">
+              <div class="spinner"></div>
+              <p class="desc" id="mbti-answer-wait-text"></p>
+            </div>
+          </div>
+
+          <div id="mbti-guessing" class="hidden">
+            <div id="mbti-guess-buttons">
+              <p class="desc" id="mbti-guess-target-name" style="text-align:center; margin-bottom:4px;"></p>
+              <p class="desc" id="mbti-guess-title" style="text-align:center; font-weight:700; font-size:1.1rem;"></p>
+              <div class="indian-choice-buttons">
+                <button id="mbti-guess-option-0" class="indian-go-btn"></button>
+                <button id="mbti-guess-option-1" class="indian-stop-btn"></button>
+              </div>
+            </div>
+
+            <div id="mbti-guess-done" class="center-block hidden">
+              <div class="spinner"></div>
+              <p class="desc">제출함, 결과 기다리는 중...</p>
+            </div>
+
+            <div id="mbti-guess-target-wait" class="center-block hidden">
+              <div class="spinner"></div>
+              <p class="desc">다른 사람들이 당신의 MBTI를 맞히고 있어요...</p>
+            </div>
+          </div>
+
+          <div id="mbti-result" class="hidden">
+            <div class="card" style="text-align:center;">
+              <p id="mbti-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
+              <p class="desc" style="margin:0;" id="mbti-result-axis"></p>
+            </div>
+            <div class="card">
+              <h2>이번 단계 결과</h2>
+              <ul class="participant-list" id="mbti-result-list"></ul>
+            </div>
+            <div class="card">
+              <h2>누적 점수</h2>
+              <ul class="participant-list" id="mbti-scoreboard-list"></ul>
+            </div>
+            <p class="desc" style="text-align:center;" id="mbti-result-wait-text"></p>
+          </div>
+        </section>
+
+        <!-- 게임 화면: 이미지 게임 -->
+        <section id="image-screen" class="hidden">
+          <header class="hero">
+            <h1>이미지 게임</h1>
+            <p>이 설명에 가장 어울리는 사람에게 투표하세요!</p>
+          </header>
+
+          <div id="image-ready" class="center-block">
+            <p class="desc">호스트가 질문을 고르는 중이에요</p>
+          </div>
+
+          <div id="image-voting" class="hidden">
+            <div class="card" style="text-align:center;">
+              <p id="image-voting-question" style="font-size:1.2rem; font-weight:700;"></p>
+            </div>
+
+            <div id="image-vote-buttons">
+              <div class="liar-vote-list" id="image-vote-list"></div>
+            </div>
+
+            <div id="image-vote-done" class="center-block hidden">
+              <div class="spinner"></div>
+              <p class="desc">투표 완료! 기다리는 중...</p>
+            </div>
+          </div>
+
+          <div id="image-result" class="hidden">
+            <div class="card" style="text-align:center;">
+              <p id="image-result-question" style="font-size:1.2rem; font-weight:700;"></p>
+            </div>
+            <div class="card">
+              <h2>득표 집계</h2>
+              <ul class="participant-list" id="image-tally-list"></ul>
+            </div>
+            <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
+          </div>
+        </section>
       </div>
-
-      <div id="mbti-result" class="hidden">
-        <div class="card" style="text-align:center;">
-          <p id="mbti-result-banner" style="font-size:1.3rem; font-weight:800;"></p>
-          <p class="desc" style="margin:0;" id="mbti-result-axis"></p>
-        </div>
-        <div class="card">
-          <h2>이번 단계 결과</h2>
-          <ul class="participant-list" id="mbti-result-list"></ul>
-        </div>
-        <div class="card">
-          <h2>누적 점수</h2>
-          <ul class="participant-list" id="mbti-scoreboard-list"></ul>
-        </div>
-        <p class="desc" style="text-align:center;" id="mbti-result-wait-text"></p>
-      </div>
-    </section>
-
-    <!-- 게임 화면: 이미지 게임 -->
-    <section id="image-screen" class="hidden">
-      <header class="hero">
-        <h1>이미지 게임</h1>
-        <p>이 설명에 가장 어울리는 사람에게 투표하세요!</p>
-      </header>
-
-      <div id="image-ready" class="center-block">
-        <p class="desc">호스트가 질문을 고르는 중이에요</p>
-      </div>
-
-      <div id="image-voting" class="hidden">
-        <div class="card" style="text-align:center;">
-          <p id="image-voting-question" style="font-size:1.2rem; font-weight:700;"></p>
-        </div>
-
-        <div id="image-vote-buttons">
-          <div class="liar-vote-list" id="image-vote-list"></div>
-        </div>
-
-        <div id="image-vote-done" class="center-block hidden">
-          <div class="spinner"></div>
-          <p class="desc">투표 완료! 기다리는 중...</p>
-        </div>
-      </div>
-
-      <div id="image-result" class="hidden">
-        <div class="card" style="text-align:center;">
-          <p id="image-result-question" style="font-size:1.2rem; font-weight:700;"></p>
-        </div>
-        <div class="card">
-          <h2>득표 집계</h2>
-          <ul class="participant-list" id="image-tally-list"></ul>
-        </div>
-        <p class="desc" style="text-align:center;">호스트가 다음 라운드를 준비하고 있어요</p>
-      </div>
-    </section>
+    </div>
+    <div class="console-logo">J's <em>MINI GAME</em></div>
+    <div class="console-controls" aria-hidden="true">
+      <div class="dpad"></div>
+      <div class="ab-buttons"><span data-label="B"></span><span data-label="A"></span></div>
+    </div>
+    <div class="start-select" aria-hidden="true"><span data-label="SELECT"></span><span data-label="START"></span></div>
+    <div class="speaker" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>

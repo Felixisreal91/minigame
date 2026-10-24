@@ -1,17 +1,25 @@
+/* 게임보이(DMG) 스타일: 화면 안은 4단계 녹색만 쓰고, 화면 밖은 회색 본체 + 버튼 장식.
+   픽셀 테두리는 box-shadow 4방향으로 그려서 모서리가 계단처럼 끊기게 만든다. */
 :root {
-  --bg: #7a8aba;
-  --bg-carbon: #21242e;
-  --surface: #ffffff;
-  --surface-2: #dedede;
-  --primary: #f68d1f;
-  --primary-dark: #e48600;
-  --accent: #ecab37;
-  --chrome: #3d4f97;
-  --text: #21242e;
-  --text-muted: #3d4f97;
-  --danger: #e60012;
-  --radius: 6px;
-  --radius-sm: 4px;
+  --gb-0: #0f380f; /* 가장 진함: 글자, 테두리 */
+  --gb-1: #306230; /* 진함: 보조 글자, 그림자 */
+  --gb-2: #8bac0f; /* 밝음: 화면 바탕 */
+  --gb-3: #9bbc0f; /* 가장 밝음: 카드, 입력칸 */
+
+  --shell: #c9c8c1;
+  --shell-shade: #a9a8a1;
+  --bezel: #5f6273;
+  --bezel-dark: #4a4c59;
+  --button-ab: #9a2257;
+  --button-ab-dark: #6e1640;
+  --logo-ink: #2b2d8f;
+
+  --light-red: #d03a2b;
+  --light-green: #3fd16a;
+
+  --px: 3px;
+  --pixel-font: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', monospace;
+  --pixel-font-display: 'Galmuri14', 'Galmuri11', 'Apple SD Gothic Neo', monospace;
   font-size: 16px;
 }
 
@@ -23,33 +31,210 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(rgba(33, 36, 46, 0.07) 1px, transparent 1px) 0 0 / 8px 8px,
-    var(--bg);
-  color: var(--text);
-  font-family: Arial, 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Segoe UI', sans-serif;
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 6px),
+    #24262b;
+  color: var(--gb-0);
+  font-family: var(--pixel-font);
+  -webkit-font-smoothing: none;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   display: flex;
   justify-content: center;
 }
 
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 6px;
-  background: var(--bg-carbon);
-  z-index: 100;
-}
+/* ---------- 본체 ---------- */
 
-.page {
+.console {
   width: 100%;
   max-width: 480px;
   min-height: 100vh;
-  padding: 32px 20px 48px;
+  background: linear-gradient(90deg, var(--shell-shade) 0, var(--shell) 6px, var(--shell) calc(100% - 6px), var(--shell-shade) 100%);
+  border-radius: 10px 10px 48px 10px;
+  padding: 20px 16px 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 14px;
+}
+
+@media (min-width: 520px) {
+  .console {
+    min-height: auto;
+    margin: 24px 0;
+    box-shadow: 0 10px 0 var(--shell-shade), 0 18px 40px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.console-screen-frame {
+  background: var(--bezel);
+  border-radius: 8px 8px 36px 8px;
+  padding: 10px 16px 18px;
+  box-shadow: inset 0 -3px 0 var(--bezel-dark);
+}
+
+.screen-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b9bccb;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+.screen-label::before,
+.screen-label::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  border-top: 2px solid var(--button-ab);
+  border-bottom: 2px solid var(--logo-ink);
+}
+
+.power-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  box-shadow: 0 0 6px #ff3b3b;
+}
+
+.console-logo {
+  font-family: var(--pixel-font-display);
+  color: var(--logo-ink);
+  font-size: 1.1rem;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  padding-left: 4px;
+}
+
+.console-logo em {
+  font-style: italic;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+}
+
+.console-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 18px 0;
+}
+
+.dpad {
+  position: relative;
+  width: 84px;
+  height: 84px;
+}
+
+.dpad::before,
+.dpad::after {
+  content: '';
+  position: absolute;
+  background: #2a2a2e;
+  border-radius: 3px;
+  box-shadow: 0 3px 0 #111;
+}
+
+.dpad::before {
+  left: 28px;
+  top: 0;
+  width: 28px;
+  height: 84px;
+}
+
+.dpad::after {
+  left: 0;
+  top: 28px;
+  width: 84px;
+  height: 28px;
+}
+
+.ab-buttons {
+  display: flex;
+  gap: 14px;
+  transform: rotate(-25deg);
+}
+
+.ab-buttons span {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--button-ab);
+  box-shadow: 0 4px 0 var(--button-ab-dark);
+  position: relative;
+}
+
+.ab-buttons span::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--logo-ink);
+  font-size: 0.75rem;
+}
+
+.ab-buttons span:first-child {
+  margin-top: 20px;
+}
+
+.start-select {
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  transform: rotate(-25deg);
+  margin-top: 6px;
+}
+
+.start-select span {
+  width: 40px;
+  height: 10px;
+  border-radius: 6px;
+  background: #8c8b86;
+  position: relative;
+}
+
+.start-select span::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--logo-ink);
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.speaker {
+  align-self: flex-end;
+  display: flex;
+  gap: 7px;
+  transform: rotate(-25deg);
+  margin: 10px 12px 0 0;
+}
+
+.speaker span {
+  width: 5px;
+  height: 44px;
+  border-radius: 3px;
+  background: var(--shell-shade);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* ---------- 화면 ---------- */
+
+.page {
+  width: 100%;
+  min-height: 60vh;
+  padding: 20px 16px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  background:
+    linear-gradient(rgba(15, 56, 15, 0.05) 1px, transparent 1px) 0 0 / 100% 3px,
+    var(--gb-2);
+  box-shadow: inset 0 0 0 2px var(--gb-1), inset 3px 3px 0 2px rgba(15, 56, 15, 0.25);
 }
 
 /* 모든 화면(section)은 자식 요소(헤더/카드/버튼 등)를 일정한 간격으로 세로 배치한다.
@@ -62,7 +247,7 @@ section {
   gap: 20px;
 }
 
-section div[id]:not(.center-block):not(.qr-popover) {
+section div[id]:not(.center-block):not(.qr-popover):not(.light-indicator) {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -74,102 +259,135 @@ html.restoring .page {
 
 header.hero {
   text-align: center;
-  margin-top: 12px;
-  margin-bottom: 28px;
+  margin: 8px 0 8px;
 }
 
 header.hero h1 {
-  font-size: 2.6rem;
-  line-height: 1.15;
-  margin: 0 0 8px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  text-shadow: 3px 3px 0 var(--chrome);
+  font-family: var(--pixel-font-display);
+  font-size: 2.2rem;
+  line-height: 1.2;
+  margin: 0 0 10px;
+  font-weight: 400;
+  color: var(--gb-0);
+  text-shadow: 3px 3px 0 var(--gb-1);
 }
 
 header.hero p {
   margin: 0;
-  color: var(--text);
-  font-size: 0.95rem;
+  color: var(--gb-1);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 header.hero::after {
   content: '';
   display: block;
-  width: 88px;
-  height: 3px;
+  width: 96px;
+  height: 4px;
   margin: 16px auto 0;
-  background-image: repeating-linear-gradient(90deg, var(--chrome) 0 4px, transparent 4px 8px);
+  background-image: repeating-linear-gradient(90deg, var(--gb-0) 0 4px, transparent 4px 8px);
+}
+
+/* 픽셀 테두리: 상하좌우로만 그림자를 뻗어서 모서리가 비는 계단 모양 */
+.card,
+input[type="text"],
+textarea,
+button,
+.game-card,
+.participant-list li,
+.qr-popover,
+.qr-wrap {
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--ring, var(--gb-0)),
+    0 var(--px) 0 0 var(--ring, var(--gb-0)),
+    calc(-1 * var(--px)) 0 0 0 var(--ring, var(--gb-0)),
+    var(--px) 0 0 0 var(--ring, var(--gb-0)),
+    var(--drop, 0 0 0 0 transparent);
 }
 
 .card {
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 22px;
+  background: var(--gb-3);
+  padding: 20px 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 3px 0 var(--chrome),
-    0 6px 10px rgba(33, 36, 46, 0.18);
+  margin: var(--px);
+  --drop: calc(var(--px) * 2) calc(var(--px) * 2) 0 0 var(--gb-1);
 }
 
 .card h2 {
   margin: 0;
-  font-size: 1.1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gb-0);
+}
+
+.card h2::before {
+  content: '▶ ';
 }
 
 .card p.desc {
-  margin: -8px 0 0;
-  color: var(--text-muted);
+  margin: -6px 0 0;
+  color: var(--gb-1);
   font-size: 0.85rem;
+}
+
+.desc {
+  color: var(--gb-1);
+  line-height: 1.5;
 }
 
 input[type="text"],
 textarea {
   width: 100%;
   padding: 14px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--chrome);
-  background: var(--surface);
-  color: var(--text);
+  border: none;
+  border-radius: 0;
+  background: var(--gb-2);
+  color: var(--gb-0);
   font-size: 1rem;
-  letter-spacing: 0.02em;
   font-family: inherit;
   resize: vertical;
+  caret-color: var(--gb-0);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--gb-1);
+  opacity: 0.8;
 }
 
 input[type="text"]:focus,
 textarea:focus {
-  outline: 2px solid var(--primary);
+  outline: none;
+  background: var(--gb-3);
+  --drop: 0 0 0 calc(var(--px) * 2) var(--gb-1);
 }
 
 input.code-input {
   text-align: center;
-  font-size: 1.4rem;
-  letter-spacing: 0.3em;
+  font-size: 1.6rem;
+  letter-spacing: 0.4em;
   font-weight: 700;
 }
 
 button {
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
+  margin: var(--px);
   padding: 14px 18px;
+  font-family: inherit;
   font-size: 1rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   cursor: pointer;
-  transition: transform 0.05s ease, opacity 0.15s ease;
+  background: var(--gb-3);
+  color: var(--gb-0);
+  --drop: 0 calc(var(--px) * 2) 0 0 var(--gb-1);
 }
 
-button:active {
-  transform: scale(0.98);
+button:active:not(:disabled) {
+  transform: translateY(var(--px));
+  --drop: 0 0 0 0 transparent;
 }
 
 button:disabled {
@@ -178,30 +396,35 @@ button:disabled {
 }
 
 button.primary {
-  background: var(--primary);
-  color: var(--text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 var(--chrome);
+  background: var(--gb-0);
+  color: var(--gb-3);
 }
 
 button.primary:hover:not(:disabled) {
-  background: var(--primary-dark);
-}
-
-button.primary:active:not(:disabled) {
-  background: var(--primary-dark);
-  box-shadow: inset 0 2px 0 var(--chrome);
+  background: var(--gb-1);
 }
 
 button.ghost {
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--chrome);
-  border: 1px solid var(--chrome);
+  background: var(--gb-3);
+  color: var(--gb-0);
+}
+
+button.ghost:hover:not(:disabled) {
+  background: var(--gb-2);
 }
 
 .error-text {
-  color: var(--danger);
+  color: var(--gb-0);
   font-size: 0.85rem;
-  min-height: 1.2em;
+  margin: 0;
+}
+
+.error-text:empty {
+  display: none;
+}
+
+.error-text:not(:empty)::before {
+  content: '! ';
 }
 
 .hidden {
@@ -216,21 +439,22 @@ button.ghost {
   justify-content: center;
   gap: 18px;
   text-align: center;
-  padding: 32px 12px;
+  padding: 28px 8px;
 }
 
 .room-code {
-  font-size: 2.4rem;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  color: var(--accent);
+  font-family: var(--pixel-font-display);
+  font-size: 2.6rem;
+  letter-spacing: 0.15em;
+  color: var(--gb-0);
+  text-shadow: 3px 3px 0 var(--gb-1);
 }
 
 .qr-wrap {
-  background: #fff;
-  padding: 16px;
-  border-radius: var(--radius);
+  background: #e0f8d0;
+  padding: 14px;
   display: inline-flex;
+  margin: var(--px);
 }
 
 .participant-list {
@@ -239,319 +463,280 @@ button.ghost {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .participant-list li {
-  background: var(--surface-2);
-  padding: 12px 14px;
-  border-radius: var(--radius-sm);
+  background: var(--gb-2);
+  padding: 10px 12px;
+  margin: 0 var(--px);
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 0 var(--chrome);
+  line-height: 1.4;
+  --ring: var(--gb-1);
 }
 
 .participant-list li .num {
-  color: var(--text-muted);
+  color: var(--gb-1);
   font-size: 0.8rem;
-  width: 20px;
+  min-width: 20px;
+}
+
+.participant-list li.loser {
+  background: var(--gb-0);
+  color: var(--gb-3);
+  --ring: var(--gb-0);
+}
+
+.participant-list li.loser .num {
+  color: var(--gb-2);
+}
+
+.participant-list li.winner {
+  background: var(--gb-3);
+  font-weight: 700;
+  --ring: var(--gb-0);
+}
+
+.participant-list li.winner::after {
+  content: '★';
+  margin-left: auto;
+}
+
+.participant-list li.missed {
+  background: transparent;
+  color: var(--gb-1);
+  --ring: transparent;
+  outline: 2px dashed var(--gb-1);
+  outline-offset: -2px;
 }
 
 .participant-count {
-  color: var(--text-muted);
+  color: var(--gb-1);
   font-size: 0.85rem;
 }
 
 .empty-state {
-  color: var(--text-muted);
+  color: var(--gb-1);
   font-size: 0.9rem;
   text-align: center;
-  padding: 24px 0;
+  padding: 20px 0;
 }
 
 .game-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 16px;
 }
 
 #clear-cache-btn {
   display: block;
   width: fit-content;
-  margin: 24px auto 0;
+  margin: 16px auto 0;
+  font-size: 0.8rem;
+  padding: 10px 14px;
 }
 
 .game-card {
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-left-width: 4px;
-  border-radius: var(--radius);
-  padding: 16px 12px;
+  background: var(--gb-3);
+  padding: 16px 10px 14px;
+  margin: var(--px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   text-align: center;
-  color: var(--text);
+  color: var(--gb-0);
   font-family: inherit;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 3px 0 var(--chrome),
-    0 5px 8px rgba(33, 36, 46, 0.15);
 }
 
-.game-card:hover {
-  border-color: var(--primary);
-}
-
-.game-card--stop-at-7 {
-  border-left-color: #00d2a0;
-}
-
-.game-card--nunchi {
-  border-left-color: #ff8a5c;
-}
-
-.game-card--truth-or-lie {
-  border-left-color: #6c5ce7;
-}
-
-.game-card--bluffing-number {
-  border-left-color: #f2b84b;
-}
-
-.game-card--liar-game {
-  border-left-color: #4da6ff;
-}
-
-.game-card--traffic-light {
-  border-left-color: #e74c3c;
-}
-
-.game-card--indian-poker {
-  border-left-color: #e84393;
-}
-
-.game-card--mbti-guess {
-  border-left-color: #00b8d9;
-}
-
-.game-card--image-game {
-  border-left-color: #27ae60;
+button.game-card:hover:not(:disabled) {
+  background: var(--gb-2);
 }
 
 .game-card-preview {
   cursor: default;
+  --drop: calc(var(--px) * 2) calc(var(--px) * 2) 0 0 var(--gb-1);
 }
 
-.game-card-preview:hover {
-  border-color: var(--surface-2);
-}
-
-.game-card-preview.game-card--stop-at-7:hover {
-  border-left-color: #00d2a0;
-}
-
-.game-card-preview.game-card--nunchi:hover {
-  border-left-color: #ff8a5c;
-}
-
-.game-card-preview.game-card--truth-or-lie:hover {
-  border-left-color: #6c5ce7;
-}
-
-.game-card-preview.game-card--bluffing-number:hover {
-  border-left-color: #f2b84b;
-}
-
-.game-card-preview.game-card--liar-game:hover {
-  border-left-color: #4da6ff;
-}
-
-.game-card-preview.game-card--traffic-light:hover {
-  border-left-color: #e74c3c;
-}
-
-.game-card-preview.game-card--indian-poker:hover {
-  border-left-color: #e84393;
-}
-
-.game-card-preview.game-card--mbti-guess:hover {
-  border-left-color: #00b8d9;
-}
-
-.game-card-preview.game-card--image-game:hover {
-  border-left-color: #27ae60;
-}
-
-.game-card-emoji {
-  font-size: 2rem;
+.game-card-icon {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
 }
 
 .game-card-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .game-card-desc {
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  color: var(--gb-1);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.45;
 }
 
 .press-btn {
-  width: 160px;
-  height: 160px;
+  width: 168px;
+  height: 168px;
   border-radius: 50%;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
+  margin: 0;
+  box-shadow: 0 8px 0 0 var(--gb-1);
 }
 
+.press-btn:active:not(:disabled) {
+  transform: translateY(6px);
+  box-shadow: 0 2px 0 0 var(--gb-1);
+}
+
+/* 신호등: 빨강/초록 구분은 게임 규칙에 필요해서 화면 안에서도 실제 색을 쓴다 */
 .light-indicator {
-  font-size: 4rem;
-  line-height: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--gb-0);
+  box-shadow: 0 6px 0 0 var(--gb-1);
+}
+
+.light-indicator span {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--gb-1);
+}
+
+.light-indicator[data-light='red'] span:first-child {
+  background: var(--light-red);
+  box-shadow: 0 0 16px var(--light-red);
+}
+
+.light-indicator[data-light='green'] span:last-child {
+  background: var(--light-green);
+  box-shadow: 0 0 16px var(--light-green);
 }
 
 button.primary.light-btn--green {
-  background: #2ecc71;
+  background: var(--light-green);
+  color: var(--gb-0);
 }
 
 button.primary.light-btn--red {
-  background: #e74c3c;
-}
-
-.participant-list li.loser {
-  background: rgba(230, 0, 18, 0.12);
-  border: 1px solid var(--danger);
-}
-
-.participant-list li.missed {
-  opacity: 0.55;
-}
-
-.participant-list li.winner {
-  background: rgba(236, 171, 55, 0.25);
-  border: 1px solid var(--accent);
+  background: var(--light-red);
+  color: #fff;
 }
 
 .indian-choice-buttons {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+}
+
+.indian-go-btn,
+.indian-stop-btn {
+  flex: 1;
+  padding: 18px;
+  font-size: 1.2rem;
 }
 
 .indian-go-btn {
-  flex: 1;
-  background: var(--primary);
-  color: var(--text);
-  padding: 18px;
-  font-size: 1.2rem;
-  font-weight: 700;
+  background: var(--gb-0);
+  color: var(--gb-3);
 }
 
 .indian-stop-btn {
-  flex: 1;
-  background: var(--danger);
-  color: #fff;
-  padding: 18px;
-  font-size: 1.2rem;
-  font-weight: 700;
+  background: var(--gb-3);
+  color: var(--gb-0);
 }
 
 .tol-truth-toggle {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 .tol-toggle-btn {
   flex: 1;
-  background: var(--surface-2);
-  color: var(--text);
-  border: 2px solid transparent;
   padding: 16px;
   font-size: 1.05rem;
 }
 
 .tol-toggle-btn.selected {
-  border-color: var(--primary);
-  background: var(--surface-2);
-  color: var(--primary);
+  background: var(--gb-0);
+  color: var(--gb-3);
 }
 
-.tol-toggle-btn:disabled {
-  opacity: 0.4;
+.tol-toggle-btn.selected::before {
+  content: '▶ ';
 }
+
+/* ---------- 호스트 상단바 ---------- */
 
 .host-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .code-corner {
   position: relative;
 }
 
+.host-toolbar-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.code-badge,
+.stop-btn,
+.force-result-btn {
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  --px: 2px;
+  --drop: 0 4px 0 0 var(--gb-1);
+}
+
 .code-badge {
-  background: var(--bg-carbon);
-  color: var(--primary-dark);
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: none;
-  font-size: 0.95rem;
-  cursor: pointer;
+  background: var(--gb-0);
+  color: var(--gb-3);
+  letter-spacing: 0.08em;
 }
 
 .stop-btn {
-  background: rgba(230, 0, 18, 0.1);
-  color: var(--danger);
-  border: 1px solid var(--danger);
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 0.9rem;
-}
-
-.host-toolbar-actions {
-  display: flex;
-  gap: 8px;
+  background: var(--gb-3);
+  color: var(--gb-0);
 }
 
 .force-result-btn {
-  background: var(--bg-carbon);
-  color: var(--primary-dark);
-  font-weight: 700;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  cursor: pointer;
+  background: var(--gb-0);
+  color: var(--gb-3);
 }
 
 .qr-popover {
   position: absolute;
-  top: 44px;
+  top: 46px;
   left: 0;
   z-index: 10;
-  background: #fff;
+  background: var(--gb-3);
   padding: 12px;
-  border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
   gap: 8px;
+  --drop: 6px 6px 0 0 var(--gb-1);
 }
 
 .qr-popover-code {
-  color: #111;
-  font-weight: 800;
-  font-size: 1.3rem;
-  letter-spacing: 0.2em;
+  color: var(--gb-0);
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: 0.15em;
   text-align: center;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
+
+/* ---------- 게임별 버튼 묶음 ---------- */
 
 .bluffing-range-grid {
   display: flex;
@@ -568,16 +753,13 @@ button.primary.light-btn--red {
 .bluffing-number-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
+  gap: 10px;
 }
 
 .bluffing-number-btn {
   aspect-ratio: 1;
   padding: 0;
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1.2rem;
 }
 
 .bluffing-number-btn:disabled {
@@ -587,28 +769,35 @@ button.primary.light-btn--red {
 .liar-vote-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .liar-vote-btn {
-  width: 100%;
+  width: auto;
 }
 
 .liar-vote-btn:disabled {
   opacity: 0.35;
 }
 
+/* 로딩: 픽셀 세 칸이 차례로 깜빡인다 */
 .spinner {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 3px solid var(--surface-2);
-  border-top-color: var(--primary);
-  animation: spin 0.8s linear infinite;
+  width: 12px;
+  height: 12px;
+  margin-right: 36px;
+  background: var(--gb-0);
+  box-shadow: 18px 0 0 var(--gb-0), 36px 0 0 var(--gb-0);
+  animation: pixel-dots 0.9s steps(1) infinite;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+@keyframes pixel-dots {
+  0% {
+    box-shadow: 18px 0 0 var(--gb-1), 36px 0 0 var(--gb-1);
+  }
+  33% {
+    box-shadow: 18px 0 0 var(--gb-0), 36px 0 0 var(--gb-1);
+  }
+  66% {
+    box-shadow: 18px 0 0 var(--gb-0), 36px 0 0 var(--gb-0);
   }
 }

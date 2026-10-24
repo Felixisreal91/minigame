@@ -606,7 +606,7 @@ socket.emit('host:attach', { code }, (res) => {
       } else {
         // 라운드 도중 호스트가 새로고침한 경우: 진행 상황만 복원
         showLightHostSubView('playing');
-        lightHostIndicator.textContent = gs.lightState === 'red' ? '🔴' : '🟢';
+        lightHostIndicator.dataset.light = gs.lightState;
         lightHostStatusText.textContent =
           gs.lightState === 'red' ? '빨간불로 바뀌었어요!' : '초록불이에요... 아무도 누르면 안 돼요';
         lightHostProgressText.textContent = `${gs.taps.length}/${gs.expectedTaps}명 터치`;
@@ -921,7 +921,7 @@ socket.on('game:round-start', () => {
     showBluffingHostSubView('picking');
     renderBluffingHostPickProgress(0, participantCount);
   } else if (activeGame === 'traffic-light') {
-    lightHostIndicator.textContent = '🟢';
+    lightHostIndicator.dataset.light = 'green';
     lightHostStatusText.textContent = '초록불이에요... 아무도 누르면 안 돼요';
     lightHostProgressText.textContent = `0/${participantCount}명 터치`;
     showLightHostSubView('playing');
@@ -933,7 +933,7 @@ socket.on('game:round-start', () => {
 
 socket.on('game:light-turned-red', () => {
   if (activeGame !== 'traffic-light') return;
-  lightHostIndicator.textContent = '🔴';
+  lightHostIndicator.dataset.light = 'red';
   lightHostStatusText.textContent = '빨간불로 바뀌었어요!';
 });
 
@@ -1342,10 +1342,12 @@ hostForceResultBtn.addEventListener('click', () => {
 // QR 렌더링은 마지막에: 실패해도 위의 참가자 목록/게임플레이 버튼 동작에 영향 없도록
 try {
   const joinUrl = `${location.origin}/?code=${code}`;
-  QRCode.toCanvas(qrCanvas, joinUrl, { width: 180, margin: 1 }, (err) => {
+  // 게임보이 화면 톤에 맞추되, 인식률을 위해 밝기 차이는 크게 유지
+  const qrColor = { dark: '#0f380f', light: '#e0f8d0' };
+  QRCode.toCanvas(qrCanvas, joinUrl, { width: 180, margin: 1, color: qrColor }, (err) => {
     if (err) console.error('QR 생성 실패:', err);
   });
-  QRCode.toCanvas(hostQrCanvas, joinUrl, { width: 140, margin: 1 }, (err) => {
+  QRCode.toCanvas(hostQrCanvas, joinUrl, { width: 140, margin: 1, color: qrColor }, (err) => {
     if (err) console.error('QR 생성 실패:', err);
   });
 } catch (err) {
